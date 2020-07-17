@@ -3,12 +3,41 @@ M Young, June 2020
 """
 from typing import List, Dict
 
+import logging
+logging.basicConfig()
+log = logging.getLogger(__name__)
+log.setLevel(logging.DEBUG)
+
 # Parsing BNF produces two tables,
 #  mapping non-terminal symbols to productions
 #  and terminal symbols to strings
 TERMINALS : Dict[str, list] = dict()
 NONTERMINALS : Dict[str, list] = dict()
 MIN_LENGTHS : Dict[str, int] = dict()
+# Merges maps each element of a merge to the
+# representative ("leader") of that merge
+MERGES: Dict[str, str] = dict()
+
+def merge_symbols(symbols: List[str]):
+    """Each of the symbols will be mapped to a
+    an already chosen leader or to a newly elected
+    leader from the list.
+    """
+    leader = None
+    for ident in symbols:
+        if ident in MERGES:
+            # Use existing unique leader
+            if leader is None:
+                leader = MERGES[ident]
+            else:
+                assert leader == MERGES[ident]
+    if leader is None:
+        # Elect new leader
+        leader = symbols.pop()
+    for ident in symbols:
+        if ident != leader:
+            MERGES[ident] = leader
+
 
 HUGE = 999_999_999   # Larger than any sentence we will generate
 
@@ -67,6 +96,21 @@ class Symbol(RHSItem):
             return MIN_LENGTHS[self.name]
         except KeyError:
             raise KeyError(f"No productions for symbol {self.name}")
+
+SYMBOLS: Dict[str, Symbol] = dict()
+
+def mk_symbol(name: str) -> Symbol:
+    """Factory for symbols; only one instance per name,
+    with merging.
+    """
+    if name in MERGES:
+        leader = MERGES[name]
+        log.debug(f"Converting {name} to {leader}")
+        name = leader
+    if name not in SYMBOLS:
+        SYMBOLS[name] = Symbol(name)
+    return SYMBOLS[name]
+
 
 class Literal(RHSItem):
 
@@ -139,7 +183,7 @@ def dump():
     for symbol in NONTERMINALS:
         print(f"# {symbol}, min length {MIN_LENGTHS[symbol]}")
         for rhs in NONTERMINALS[symbol]:
-            print(f"{symbol} ::= {str(rhs)} ; [length {rhs.min_tokens()}]")
+            print(f"{symbol} ::= {str(rhs)} ; \n#[length {rhs.min_tokens()}]")
         print()
 
 

@@ -65,9 +65,14 @@ class TokenCat(Enum):
     KLEENE = r'\*'
     LPAREN = r'\('
     RPAREN = r'\)'
+    # Merges: [symbol, symbol, ...]
+    LBRACK = r"\["
+    RBRACK = r"\]"
+    COMMA = ","
     # Relations
     BNFPROD = r"::="
-    LEXPROD = r":="
+    # LEXPROD = r":="
+    BNFMERGE = r":::"
     # Error processing
     error = "."           # catch-all for errors
     END = "---SHOULD NOT MATCH---"  # Not really a pattern
