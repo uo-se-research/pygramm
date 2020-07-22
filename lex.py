@@ -53,7 +53,7 @@ log.setLevel(logging.INFO)
 class TokenCat(Enum):
     # Note that these patterns MUST NOT include
     # capturing groups.  Use ?: to disable capturing
-    ignore = r"\s+|#.*"   # Whitespace and comments
+    ignore = r"\s+|#.*|/\*.*?\*/"   # Whitespace and comments
     IDENT = r"<?[a-zA-Z_][a-zA-Z_0-9]*>?"
     LBRACE = r"\{"  # Not currently used
     RBRACE = r"\}"
