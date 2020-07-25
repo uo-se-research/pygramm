@@ -1,14 +1,12 @@
 """
 An LL parser for BNF
-Michal Young, adapted Summer 2020 from CIS 211 projects
+Michal Young, adapted Summer 2020 from CIS 211 projects,
+revised in discussion with Ziyad Alsaeed.
 """
 
 from lex import TokenStream, TokenCat
 import grammar
-from typing import TextIO, List, Dict
-# import io
-# import traceback
-import sys
+from typing import TextIO, List
 
 import logging
 
@@ -22,13 +20,15 @@ class InputError(Exception):
     pass
 
 
-def parse(srcfile: TextIO):
+def parse(srcfile: TextIO) -> grammar.Grammar:
     """Interface function to LL parser of BNF.
     Populates TERMINALS and NONTERMINALS
     """
     stream = TokenStream(srcfile)
-    _grammar(stream)
-    return
+    gram = grammar.Grammar()
+    _grammar(stream, gram)
+    gram.finalize()
+    return gram
 
 
 def require(stream: TokenStream, category: TokenCat, desc: str = "", consume=False):
@@ -62,28 +62,28 @@ def require(stream: TokenStream, category: TokenCat, desc: str = "", consume=Fal
 #  group ::= '(' bnf_rhs ')'
 #
 
-def _grammar(stream: TokenStream) :
+def _grammar(stream: TokenStream, gram: grammar.Grammar) :
     """
     grammar ::= block ;
     (Implicitly returns dicts in the grammar module)
     """
-    _block(stream)
+    _block(stream, gram)
     require(stream, TokenCat.END)
     return
 
 
-def _block(stream: TokenStream):
+def _block(stream: TokenStream, gram: grammar.Grammar):
     """
     block ::= { production }
     (Adds to dicts in grammar module)
     """
     log.debug(f"Parsing block from token {stream.peek()}")
     while stream.peek().kind == TokenCat.IDENT:
-        _statement(stream)
+        _statement(stream, gram)
     return
 
 
-def _statement(stream: TokenStream):
+def _statement(stream: TokenStream, gram: grammar.Grammar):
     """
     _statement == production | merge
     (left-factored for lookahead)
@@ -92,13 +92,13 @@ def _statement(stream: TokenStream):
     lhs_ident = stream.take().value
     prod_type = stream.take()
     if prod_type.kind == TokenCat.BNFPROD:
-        rhs = _bnf_rhs(stream)
-        grammar.add_cfg_prod(lhs_ident, rhs)
+        rhs = _bnf_rhs(stream, gram)
+        gram.add_cfg_prod(lhs_ident, rhs)
     elif prod_type.kind == TokenCat.BNFMERGE:
         merge_list = _merge_symbols(stream)
         # Merges are symmetric, so order doesn't matter
         merge_list.append(lhs_ident)
-        grammar.merge_symbols(merge_list)
+        gram.merge_symbols(merge_list)
     require(stream, TokenCat.TERMINATOR, "Statement must end with terminator",
             consume=True)
 
@@ -121,81 +121,81 @@ def _merge_symbols(stream) -> List[str]:
 # 'first' items of 'symbol'
 FIRST_SYM = [TokenCat.IDENT, TokenCat.STRING, TokenCat.CHAR]
 
-def _bnf_rhs(stream: TokenStream) -> grammar.RHSItem:
-    choice = _bnf_seq(stream)
+def _bnf_rhs(stream: TokenStream, gram: grammar.Grammar) -> grammar.RHSItem:
+    choice = _bnf_seq(stream, gram)
     # Special case: Only one alternative
     if stream.peek().kind != TokenCat.DISJUNCT:
         return choice
-    choices = grammar.Choice()
+    choices = gram.choice()
     choices.append(choice)
     while stream.peek().kind == TokenCat.DISJUNCT:
         stream.take()
-        choice = _bnf_seq(stream)
+        choice = _bnf_seq(stream, gram)
         choices.append(choice)
     return choices
 
-def _bnf_seq(stream: TokenStream) -> grammar.RHSItem:
+def _bnf_seq(stream: TokenStream, gram: grammar.Grammar) -> grammar.RHSItem:
     """Sequence of rhs items"""
     # Could be an empty list ...
     if stream.peek().kind == TokenCat.TERMINATOR:
-        return grammar.Seq()  # The empty sequence
-    first = _bnf_primary(stream)
+        return gram.seq()  # The empty sequence
+    first = _bnf_primary(stream, gram)
     # Could be a single item
     if stream.peek().kind == TokenCat.TERMINATOR:
         return first
-    seq = grammar.Seq()
+    seq = gram.seq()
     seq.append(first)
     while stream.peek().kind in FIRST_SYM:
-        next_item = _bnf_primary(stream)
+        next_item = _bnf_primary(stream, gram)
         seq.append(next_item)
     return seq
 
 #  rhs_primary ::= symbol [ '*' ]  # Kleene
 
-def _bnf_primary(stream: TokenStream) -> grammar.RHSItem:
+def _bnf_primary(stream: TokenStream, gram: grammar.Grammar) -> grammar.RHSItem:
     """A symbol or group, possibly with kleene star"""
-    item = _bnf_symbol(stream)
+    item = _bnf_symbol(stream, gram)
     # log.debug(f"Primary: {item}")
     if stream.peek().kind == TokenCat.KLEENE:
         token = stream.take()
-        return grammar.Kleene(item)
+        return gram.kleene(item)
     else:
         return item
 
-def _bnf_symbol(stream: TokenStream) -> grammar.RHSItem:
+def _bnf_symbol(stream: TokenStream, gram: grammar.Grammar) -> grammar.RHSItem:
     """A single identifier or literal, or a parenthesized group"""
     if stream.peek().kind == TokenCat.LPAREN:
         stream.take()
-        subseq = _bnf_rhs(stream)
+        subseq = _bnf_rhs(stream, gram)
         require(stream, TokenCat.RPAREN, consume=True)
         # log.debug(f"Subsequence group: {subseq}")
         return subseq
     token = stream.take()
     if token.kind == TokenCat.STRING or token.kind == TokenCat.CHAR:
         # log.debug("Forming literal")
-        return grammar.Literal(token.value[1:-1]) # Clips quotes
+        return gram.literal(token.value[1:-1]) # Clips quotes
     elif token.kind == TokenCat.IDENT:
         # log.debug("Forming symbol")
-        return grammar.mk_symbol(token.value)
+        return gram.symbol(token.value)
     else:
         raise InputError(f"Unexpected input token {token.value}")
 
 
 
-def _lex_rhs(stream: TokenStream) -> grammar.Literal:
+def _lex_rhs(stream: TokenStream, gram: grammar.Grammar) -> grammar._Literal:
     """FIXME: How should we define lexical productions?"""
     token = stream.take()
     if (token.kind == TokenCat.STRING or
         token.kind == TokenCat.NUMBER):
-        return grammar.Literal(token)
+        return gram.literal(token.value)
     else:
         raise InputError(f"Lexical RHS should be string literal or integer")
 
 
 if __name__ == "__main__":
-    sample = open("data/gram-calc-recursive-2020-06-04_23-31.gram.txt")
+    sample = open("data/with_comments.txt")
     print("Parsing sample")
-    parse(sample)
+    gram = parse(sample)
     print("Parsed!")
-    grammar.dump()
+    gram.dump()
 

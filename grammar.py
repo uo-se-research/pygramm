@@ -8,62 +8,17 @@ logging.basicConfig()
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
 
-# Parsing BNF produces two tables,
-#  mapping non-terminal symbols to productions
-#  and terminal symbols to strings
-TERMINALS : Dict[str, list] = dict()
-NONTERMINALS : Dict[str, list] = dict()
-MIN_LENGTHS : Dict[str, int] = dict()
-# Merges maps each element of a merge to the
-# representative ("leader") of that merge
-MERGES: Dict[str, str] = dict()
 
-def merge_symbols(symbols: List[str]):
-    """Each of the symbols will be mapped to a
-    an already chosen leader or to a newly elected
-    leader from the list.
-    """
-    leader = None
-    for ident in symbols:
-        if ident in MERGES:
-            # Use existing unique leader
-            if leader is None:
-                leader = MERGES[ident]
-            else:
-                assert leader == MERGES[ident]
-    if leader is None:
-        # Elect new leader
-        leader = symbols.pop()
-    for ident in symbols:
-        if ident != leader:
-            MERGES[ident] = leader
 
 
 HUGE = 999_999_999   # Larger than any sentence we will generate
-
-def calc_min_tokens():
-    """Calculate the minimum length of each non-terminal,
-    updating the initial estimate of HUGE.
-    """
-    changed = True
-    # Iterate to fixed point
-    while changed:
-        changed = False
-        for symbol in NONTERMINALS:
-            prior_estimate = MIN_LENGTHS[symbol]
-            for rhs in NONTERMINALS[symbol]:
-                new_estimate = rhs.min_tokens()
-                if new_estimate < prior_estimate:
-                    changed = True
-                    prior_estimate = new_estimate
-                    MIN_LENGTHS[symbol] = new_estimate
 
 
 class RHSItem(object):
     """Abstract base class for components of the
     right hand side of a production:
     terminal symbols, non-terminal symbols,
-    and repetitions (kleene stars)
+    choices, and repetitions (kleene stars)
     """
 
     def min_tokens(self) -> int:
@@ -73,6 +28,20 @@ class RHSItem(object):
         becomes accurate only after calc_min_tokens.
         """
         raise NotImplementedError("min_tokens not implemented")
+
+    def n_choices(self, budget: int=HUGE) -> int:
+        """How many choices to expand this symbol,
+        with a limit of budget tokens?
+        """
+        raise NotImplementedError("n_choices not implemented")
+
+    def expand(self, choice: int=0) -> List["RHSItem"]:
+        """Return the chosen expansion"""
+        raise NotImplementedError("expand not implemented")
+
+    def is_terminal(self) -> bool:
+        """False for everything except literals"""
+        return False
 
     def is_nullable(self) -> bool:
         """An item is nullable if it can expand into
@@ -84,35 +53,27 @@ class RHSItem(object):
         raise NotImplementedError(f"Missing __str__ method in {self.__class__}!")
 
 
-class Symbol(RHSItem):
+class _Symbol(RHSItem):
     def __init__(self, name: str):
         self.name = name
+        self._min_length = None
+        self.expansions = []  # Filled in in finalization
 
     def __str__(self) -> str:
         return self.name
 
+    def set_min_length(self, n_tokens: int):
+        """Set by grammar.calc_min_lengths
+        AFTER the full grammar has been constructed
+        """
+        self._min_length = n_tokens
+
     def min_tokens(self) -> int:
-        try:
-            return MIN_LENGTHS[self.name]
-        except KeyError:
-            raise KeyError(f"No productions for symbol {self.name}")
+        assert self._min_length is not None, \
+                "Grammar.min_lengths must be called after grammar construction"
+        return self._min_length
 
-SYMBOLS: Dict[str, Symbol] = dict()
-
-def mk_symbol(name: str) -> Symbol:
-    """Factory for symbols; only one instance per name,
-    with merging.
-    """
-    if name in MERGES:
-        leader = MERGES[name]
-        log.debug(f"Converting {name} to {leader}")
-        name = leader
-    if name not in SYMBOLS:
-        SYMBOLS[name] = Symbol(name)
-    return SYMBOLS[name]
-
-
-class Literal(RHSItem):
+class _Literal(RHSItem):
 
     def __init__(self, text: str):
         self.text = text
@@ -123,8 +84,13 @@ class Literal(RHSItem):
     def min_tokens(self) -> int:
         return 1
 
+    def is_terminal(self) -> bool:
+        """False for everything except literals"""
+        return True
 
-class Seq(RHSItem):
+
+
+class _Seq(RHSItem):
     """Sequence of grammar items"""
     def __init__(self):
         self.items = [ ]
@@ -133,13 +99,15 @@ class Seq(RHSItem):
         self.items.append(item)
 
     def __str__(self) -> str:
+        if len(self.items) == 0:
+            return "/* empty */"
         return " ".join(str(item) for item in self.items)
 
     def min_tokens(self) -> int:
         return sum(item.min_tokens() for item in self.items)
 
 
-class Kleene(RHSItem):
+class _Kleene(RHSItem):
     """Repetition"""
     def __init__(self, child: RHSItem):
         self.child = child
@@ -151,7 +119,7 @@ class Kleene(RHSItem):
         """Could be repeated 0 times"""
         return 0
 
-class Choice(RHSItem):
+class _Choice(RHSItem):
 
     def __init__(self):
         self.items: List[RHSItem] = []
@@ -166,24 +134,153 @@ class Choice(RHSItem):
     def min_tokens(self) -> int:
         return min(item.min_tokens() for item in self.items)
 
+class Grammar(object):
+    """A grammar is a collection of productions.
+    Productions are indexed by non-terminal
+    symbols.
+    """
+    def __init__(self):
+        self.ready = False  # Pre-processing done
+        self.start = None   # Replace with start symbol
 
+        # Merges maps each element of a merge to the
+        # representative ("leader") of that merge
+        self.merges: Dict[str, str] = dict()
 
-def add_cfg_prod(lhs_ident: str, rhs: list):
-    if not lhs_ident in NONTERMINALS:
-        NONTERMINALS[lhs_ident] = []
-        MIN_LENGTHS[lhs_ident] = HUGE  # Initial estimate
-    NONTERMINALS[lhs_ident].append(rhs)
+        # Interning (a la Lisp 'intern', Java string tables):  We keep
+        # a single representative node for each unique
+        # literal and symbol. (Later we may merge identical
+        # subtrees.
+        self.symbols: Dict[str, _Symbol] = dict()
+        self.literals: Dict[str, _Literal] = dict()
 
-def add_lex_prod(lhs_ident: str, rhs: str):
-    raise NotImplemented("Lexical productions have not been implemented")
+        # Parsing BNF produces two tables,
+        #  mapping non-terminal symbols to productions
+        #  and terminal symbols to strings
+        self.productions : Dict[str, list] = dict()
 
-def dump():
-    """Dump the grammar to stdout with annotation"""
-    calc_min_tokens()
-    for symbol in NONTERMINALS:
-        print(f"# {symbol}, min length {MIN_LENGTHS[symbol]}")
-        for rhs in NONTERMINALS[symbol]:
-            print(f"{symbol} ::= {str(rhs)} ; \n#[length {rhs.min_tokens()}]")
-        print()
+    def add_cfg_prod(self, lhs_ident: str, rhs: list):
+        if self.start is None:
+            self.start = lhs_ident
+        if not lhs_ident in self.productions:
+            self.productions[lhs_ident] = []
+        self.productions[lhs_ident].append(rhs)
 
+    def dump(self):
+        """Dump the grammar to stdout with annotation"""
+        for sym_name in self.symbols:
+            sym = self.symbols[sym_name]
+            print(f"# {sym_name}, min length {self.symbols[sym_name].min_tokens()}")
+            #for rhs in self.productions[sym_name]:
+            #   print(f"{sym_name} ::= {str(rhs)} ; \n#[length {rhs.min_tokens()}]")
+            print(f"{sym_name} ::= {sym.expansions}")
+            print()
+
+    def merge_symbols(self, symbols: List[str]):
+        """Each of the symbols will be mapped to a
+        an already chosen leader or to a newly elected
+        leader from the list.
+        """
+        leader = None
+        for ident in symbols:
+            if ident in self.merges:
+                # Use existing unique leader
+                if leader is None:
+                    leader = self.merges[ident]
+                else:
+                    assert leader == self.merges[ident]
+        if leader is None:
+            # Elect new leader
+            leader = symbols.pop()
+        for ident in symbols:
+            if ident != leader:
+                self.merges[ident] = leader
+
+    # Each of the subclasses of RHS have a factory method in Grammar.
+    # This allows us to instantiate them in the context of a particular
+    # Grammar object.  In particular, it allows us merge symbols before
+    # instantiating.
+
+    def symbol(self, name: str) -> _Symbol:
+        """Unique node for a symbol with this name, after merging"""
+        if name in self.merges:
+            leader = self.merges[name]
+            log.debug(f"Converting {name} to {leader}")
+            name = leader
+        if name not in self.symbols:
+            self.symbols[name] = _Symbol(name)
+        return self.symbols[name]
+
+    def literal(self, text: str):
+        """Unique node for this literal string"""
+        if text not in self.literals:
+            self.literals[text] = _Literal(text)
+        return self.literals[text]
+
+    # FIXME: Consider merging choices, sequences, and alternations
+
+    def seq(self):
+        return _Seq()
+
+    def kleene(self, child: RHSItem):
+        return _Kleene(child)
+
+    def choice(self):
+        return _Choice()
+
+    # For sentence generation, we need to know the minimum length
+    # of a phrase generated for each non-terminal symbol.
+
+    def _calc_min_tokens(self):
+        """Calculate the minimum length of each non-terminal,
+        updating the initial estimate of HUGE.
+        """
+        # We will iterate *down* to a fixed point from an
+        # initial over-estimate of phrase length
+        for name in self.symbols:
+            self.symbols[name].set_min_length(HUGE)
+        changed = True
+        # Iterate to fixed point
+        while changed:
+            changed = False
+            for name in self.symbols:
+                sym = self.symbols[name]
+                prior_estimate = sym.min_tokens()
+                for rhs in self.productions[name]:
+                    new_estimate = rhs.min_tokens()
+                    if new_estimate < prior_estimate:
+                        changed = True
+                        prior_estimate = new_estimate
+                        sym.set_min_length(new_estimate)
+        # Sanity check:  Did we find a length for each symbol?
+        for name in self.symbols:
+            assert self.symbols[name].min_tokens() < HUGE, \
+                    f"Failed to find min length for {name}"
+            # Should never fail, but ...
+
+    def finalize(self):
+        """Operations that should be performed on a grammar after all
+        productions have been added, and before the grammar is used
+        to generate sentences, printed, etc.
+        """
+        # Connect non-terminals to their right-hand-sides,
+        # creating a new _Choice node for non-terminals that
+        # have multiple productions.
+        for name in self.productions:
+            symbol = self.symbols[name]
+            expansions = self.productions[name]
+            if len(expansions) == 1:
+                symbol.expansions = expansions[0]
+            elif len(expansions) > 1:
+                choices = _Choice()
+                for choice in expansions:
+                    choices.append(choice)
+                self.symbols[name].expansions = choices
+            else:
+                raise Exception(f"No productions for {name}")
+        # For generation with "budgets" (length limits), we also
+        # need to know the minimum number of tokens produced by
+        # each non-terminal (and so indirectly by each production)
+        self._calc_min_tokens()
+    
 
