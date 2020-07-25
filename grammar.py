@@ -1,7 +1,7 @@
 """Grammar structure
 M Young, June 2020
 """
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 import logging
 logging.basicConfig()
@@ -29,9 +29,10 @@ class RHSItem(object):
         """
         raise NotImplementedError("min_tokens not implemented")
 
-    def n_choices(self, budget: int=HUGE) -> int:
-        """How many choices to expand this symbol,
-        with a limit of budget tokens?
+    def choices(self, budget: int=HUGE) -> List["RHSItem"]:
+        """List of choices for this item.
+        FIXME: What does a sequence return?  First item or
+        whole sequence?  
         """
         raise NotImplementedError("n_choices not implemented")
 
@@ -73,6 +74,13 @@ class _Symbol(RHSItem):
                 "Grammar.min_lengths must be called after grammar construction"
         return self._min_length
 
+    # Symbols and alternations provide a 'choices' operation
+    def choices(self, budget: int) -> List[RHSItem]:
+        # Note 'expansions' is a single RHS item that
+        # may br a '_Choice' or something else; so at this
+        # point just one alternative
+        return [ self.expansions ]
+
 class _Literal(RHSItem):
 
     def __init__(self, text: str):
@@ -111,6 +119,12 @@ class _Kleene(RHSItem):
     """Repetition"""
     def __init__(self, child: RHSItem):
         self.child = child
+        # In prep for choices method,
+        # A* == (AA*)|(/* empty */)
+        self._base_case = _Seq()
+        self._recursive_case = _Seq()
+        self._recursive_case.append(self.child)
+        self._recursive_case.append(self)
 
     def __str__(self) -> str:
         return f"({str(self.child)})*"
@@ -118,6 +132,13 @@ class _Kleene(RHSItem):
     def min_tokens(self) -> int:
         """Could be repeated 0 times"""
         return 0
+
+    # A* is like choice between empty and AA*
+    def choices(self, budget: int) -> List["RHSItem"]:
+        if budget >= self.min_tokens():
+            return [self._recursive_case, self._base_case]
+        else:
+            return [self._base_case]
 
 class _Choice(RHSItem):
 
@@ -134,6 +155,12 @@ class _Choice(RHSItem):
     def min_tokens(self) -> int:
         return min(item.min_tokens() for item in self.items)
 
+    def choices(self, budget: int) -> List["RHSItem"]:
+        return [item for item in self.items    \
+                if item.min_tokens() <= budget]
+
+
+
 class Grammar(object):
     """A grammar is a collection of productions.
     Productions are indexed by non-terminal
@@ -141,7 +168,7 @@ class Grammar(object):
     """
     def __init__(self):
         self.ready = False  # Pre-processing done
-        self.start = None   # Replace with start symbol
+        self.start: Optional[_Symbol] = None   # Replace with start symbol
 
         # Merges maps each element of a merge to the
         # representative ("leader") of that merge
@@ -159,9 +186,10 @@ class Grammar(object):
         #  and terminal symbols to strings
         self.productions : Dict[str, list] = dict()
 
-    def add_cfg_prod(self, lhs_ident: str, rhs: list):
+    def add_cfg_prod(self, lhs: _Symbol, rhs: list):
         if self.start is None:
-            self.start = lhs_ident
+            self.start = lhs
+        lhs_ident = lhs.name
         if not lhs_ident in self.productions:
             self.productions[lhs_ident] = []
         self.productions[lhs_ident].append(rhs)

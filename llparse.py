@@ -12,7 +12,7 @@ import logging
 
 logging.basicConfig()
 log = logging.getLogger(__name__)
-log.setLevel(logging.DEBUG)
+log.setLevel(logging.INFO)
 
 
 class InputError(Exception):
@@ -92,8 +92,9 @@ def _statement(stream: TokenStream, gram: grammar.Grammar):
     lhs_ident = stream.take().value
     prod_type = stream.take()
     if prod_type.kind == TokenCat.BNFPROD:
+        lhs_sym = gram.symbol(lhs_ident)
         rhs = _bnf_rhs(stream, gram)
-        gram.add_cfg_prod(lhs_ident, rhs)
+        gram.add_cfg_prod(lhs_sym, rhs)
     elif prod_type.kind == TokenCat.BNFMERGE:
         merge_list = _merge_symbols(stream)
         # Merges are symmetric, so order doesn't matter
@@ -198,4 +199,5 @@ if __name__ == "__main__":
     gram = parse(sample)
     print("Parsed!")
     gram.dump()
+
 
