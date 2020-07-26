@@ -27,10 +27,16 @@ class Gen_State:
         # Note 'remainder' is in reverse order, so that
         # we can push and pop symbols
         self.rest: List[grammar.RHSItem] = [gram.start]
-        # Budget is always an available budget for the next
-        # item, after reserving adequate resource for
-        # subsequent items
+        # The full budget for a generated sentence
         self.budget = budget
+        # The budget excess --- by how much does the
+        # available budget exceed what is needed for the
+        # smallest phrase we could generate from self.rest?
+        self.margin = self.budget - self.rest[0].min_tokens()
+        # And for good measure we'll keep track of how much
+        # we've actually generated.  At the end, self.budget_used
+        # + self.margin should equal self.budget
+        self.budget_used = 0
 
     def __str__(self) -> str:
         """Looks like foobar @ A(B|C)*Dx,8"""
@@ -71,6 +77,7 @@ class Gen_State:
         sym = self.rest.pop()
         assert isinstance(sym, grammar._Literal)
         self.text += sym.text
+        self.budget_used += 1
 
     # Non-terminal symbols, including kleene star and choices,
     # provide an opportunity for external control of options.
@@ -81,7 +88,7 @@ class Gen_State:
         for the next step.  (Possibly just one.)
         """
         element = self.rest[-1]  # FIFO access
-        return element.choices(self.budget)
+        return element.choices(self.margin + element.min_tokens())
 
     # External agent can pick one of the choices to replace
     # the current symbol.  Budget will be adjusted by minimum
@@ -90,7 +97,9 @@ class Gen_State:
         sym = self.rest.pop()
         log.debug(f"{sym} -> {expansion}")
         self.rest.append(expansion)
-        self.budget -= expansion.min_tokens()
+        # Budget adjustment. Did we use some of the margin?
+        spent = expansion.min_tokens() - sym.min_tokens()
+        self.margin -= spent
 
 
 def random_sentence(g: grammar.Grammar, budget: int=20):
@@ -102,7 +111,7 @@ def random_sentence(g: grammar.Grammar, budget: int=20):
     state = Gen_State(g, budget)
     print(f"Initially {state}")
     while state.has_more():
-        print(f"=> {state} budget {state.budget}")
+        print(f"=> {state} margin/budget {state.margin}/{state.budget}")
         if state.is_terminal():
             state.shift()
         else:
