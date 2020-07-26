@@ -20,19 +20,21 @@ log.setLevel(logging.INFO)
 class Gen_State:
     """The state of sentence generation.  Each step of the
     generator transforms the state.
+    We keep a prefix (already generated terminals), a suffix
+    (symbols yet to be expanded), and some bookkeeping
+    for the budget.
     """
 
     def __init__(self, gram: grammar.Grammar, budget: int):
         self.text = ""
-        # Note 'remainder' is in reverse order, so that
-        # we can push and pop symbols
-        self.rest: List[grammar.RHSItem] = [gram.start]
-        # The full budget for a generated sentence
+        # Suffix is in reverse order, so that
+        # we can push and pop symbols efficiently
+        self.suffix: List[grammar.RHSItem] = [gram.start]
+        # The full budget for a generated sentence; does not change
         self.budget = budget
-        # The budget excess --- by how much does the
-        # available budget exceed what is needed for the
-        # smallest phrase we could generate from self.rest?
-        self.margin = self.budget - self.rest[0].min_tokens()
+        # The budget margin, initially for the start symbol.
+        # Adjusted with each expansion.
+        self.margin = budget - gram.start.min_tokens()
         # And for good measure we'll keep track of how much
         # we've actually generated.  At the end, self.budget_used
         # + self.margin should equal self.budget
@@ -40,7 +42,7 @@ class Gen_State:
 
     def __str__(self) -> str:
         """Looks like foobar @ A(B|C)*Dx,8"""
-        suffix = "".join([str(sym) for sym in reversed(self.rest)])
+        suffix = "".join([str(sym) for sym in reversed(self.suffix)])
         return f"{self.text} @ {suffix}"
 
 
@@ -58,23 +60,23 @@ class Gen_State:
     def has_more(self) -> bool:
         # We must expand BEFORE checking length,
         # because we could have a sequence of empty sequences
-        while len(self.rest) > 0 and \
-                isinstance(self.rest[-1], grammar._Seq):
-            sym = self.rest.pop()
+        while len(self.suffix) > 0 and \
+                isinstance(self.suffix[-1], grammar._Seq):
+            sym = self.suffix.pop()
             log.debug(f"Expanding sequence '{sym}'")
             # FIFO access order --- reversed on rest
             for el in reversed(sym.items):
-                self.rest.append(el)
-        return len(self.rest) > 0
+                self.suffix.append(el)
+        return len(self.suffix) > 0
 
 
     # Terminal symbols can only be shifted to prefix
     def is_terminal(self) -> bool:
-        sym = self.rest[-1] # FIFO access order
+        sym = self.suffix[-1] # FIFO access order
         return isinstance(sym, grammar._Literal)
 
     def shift(self):
-        sym = self.rest.pop()
+        sym = self.suffix.pop()
         assert isinstance(sym, grammar._Literal)
         self.text += sym.text
         self.budget_used += 1
@@ -87,16 +89,16 @@ class Gen_State:
         """The RHS elements that can be chosen
         for the next step.  (Possibly just one.)
         """
-        element = self.rest[-1]  # FIFO access
+        element = self.suffix[-1]  # FIFO access
         return element.choices(self.margin + element.min_tokens())
 
     # External agent can pick one of the choices to replace
     # the current symbol.  Budget will be adjusted by minimum
     # cost of that expansion.
     def expand(self, expansion: grammar.RHSItem):
-        sym = self.rest.pop()
+        sym = self.suffix.pop()
         log.debug(f"{sym} -> {expansion}")
-        self.rest.append(expansion)
+        self.suffix.append(expansion)
         # Budget adjustment. Did we use some of the margin?
         spent = expansion.min_tokens() - sym.min_tokens()
         self.margin -= spent

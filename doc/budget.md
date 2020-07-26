@@ -45,58 +45,40 @@ actual minimum budget for each non-terminal.
 We maintain a budget while generating
 text from the grammar.  At each step in 
 generation, we have a string of 
-tokens that has been generated, and a
+tokens that has been generated, which 
+ we will call the prefix, and a
 string of grammar symbols that remain
 to be processed, which we will call
-the suffix. The invariant we will
-maintain is that if the entire budget 
-were expended on the first symbol 
-in the suffix, we could still stay within
-the total original budget by generating
-a minimum length string for each of 
-the remaining symbols. 
+the suffix. We want to remain "in budget", 
+meaning that the length of the prefix plus 
+the minimum budget for the suffix is at 
+most the the budget for the sentence. 
 
-Initially we allocate the whole budget
-to the start symbol.  This establishes
-the invariant:  If we spent the whole 
-budget on the start symbol, we would 
-have enough left for the zero symbols
-that follow it in the suffix. 
+Initially we can calculate a *margin* as 
+the difference between the total budget 
+and the minimum budget for the start symbol.
+We are within budget if the *margin* is 
+non-negative.  
+It is this *margin* that we will adjust 
+as generation proceeds. 
 
-The budget is adjusted when we choose 
-an expansion of a symbol or phrase. 
-The symbol or phrase has a minimum budget
-*m*, and we have a budget *b* to spend
-on it.  *b* must be at least *m* if
-we have not made a mistake. We consider 
-only choices that are at most *b*. 
-If we choose *c*, then we reduce the 
-budget by *minbud(c) - m*.  
+Suppose we are expanding a symbol *A*, 
+with a minimum budget of *b*, and we 
+currently hold a *margin* of *m*.  We may
+choose any expansion of *A* with a 
+minimum budget at most *m + b*. If we 
+choose an expansion with minimum budget *t*
+such that *b < t <= m+b*, then we have a 
+*remaining margin* of *m - (t - b)*. 
 
-This preserves the invariant.  No other
-adjustments are necessary. 
+We can see this adjustment in `generator.py`: 
 
-Consider the case that we chose the
-shortest expansion *c*.  In this case 
-we do not adjust the remaining budget 
-at all.  It was adequate for the rest
-of the suffix before, and it is still adequate. 
-
-Suppose we instead made a choice *c* 
-that has a minbud greater than the minbud
-of the symbol or phrase we are replacing. 
-It is still less than *b*, so the remaining 
-*b* after adjustment is still adequate for 
-the suffix. 
-
-If the suffix is ABC, we can think 
-of the difference between the current 
-budget and minbud(A) as excess capacity. 
-The only adjustment we ever need make is 
-to account for having used some of this
-excess.  Any excess that is not used 
-is effectively passed on to be used by 
-the next symbol.
-
-(Is this right?  It does not make
-sense to me now.)
+```python
+     def expand(self, expansion: grammar.RHSItem):
+        sym = self.suffix.pop()
+        log.debug(f"{sym} -> {expansion}")
+        self.suffix.append(expansion)
+        # Budget adjustment. Did we use some of the margin?
+        spent = expansion.min_tokens() - sym.min_tokens()
+        self.margin -= spent
+```
