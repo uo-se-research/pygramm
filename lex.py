@@ -146,6 +146,7 @@ class TokenStream(object):
 
     def __init__(self, f: io.IOBase):
         self.file = f
+        self.line_num = 0  # Public variable
         self.tokens = []
         self._check_fill()
         log.debug("Tokens: {}".format(self.tokens))
@@ -159,11 +160,16 @@ class TokenStream(object):
             # a token, but the loop will be broken if we
             # hit end of file
             line = self.file.readline()
+            self.line_num += 1
             log.debug(f"Check fill reading line: '{line}'")
             if len(line) == 0:
                 # End of file, leave zero tokens in buffer
                 break
-            self.tokens = lex(line.strip())
+            try:
+                self.tokens = lex(line.strip())
+            except LexicalError as e:
+                msg = f"Line {self.line_num}: {e}"
+                raise LexicalError(msg)
             log.debug("Refilled, tokens: {}".format(self.tokens))
             # Note this might also leave zero tokens in buffer,
             # but in that case outer while loop will attempt

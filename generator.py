@@ -106,7 +106,6 @@ class Gen_State:
 
 def random_sentence(g: grammar.Grammar, budget: int=20):
     """A generator of random sentences, without external control"""
-    random.seed()
     while g.start.min_tokens() > budget:
         log.info(f"Bumping budget by minimum requirement {g.start.min_tokens()}")
         budget += g.start.min_tokens()

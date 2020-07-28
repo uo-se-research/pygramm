@@ -36,7 +36,9 @@ def require(stream: TokenStream, category: TokenCat, desc: str = "", consume=Fal
     Consumes and discards it if consume==True.
     """
     if stream.peek().kind != category:
-        raise InputError(f"Expecting {desc or category}, but saw {stream.peek()} instead")
+        msg = f"Expecting {desc or category}, but saw " +\
+              f"{stream.peek()} instead in line {stream.line_num}"
+        raise InputError(msg)
     if consume:
         stream.take()
     return
@@ -120,7 +122,7 @@ def _merge_symbols(stream) -> List[str]:
 #  bnf_seq ::= bnf_primary { bnf_primary }
 
 # 'first' items of 'symbol'
-FIRST_SYM = [TokenCat.IDENT, TokenCat.STRING, TokenCat.CHAR]
+FIRST_SYM = [TokenCat.IDENT, TokenCat.STRING, TokenCat.CHAR, TokenCat.LPAREN ]
 
 def _bnf_rhs(stream: TokenStream, gram: grammar.Grammar) -> grammar.RHSItem:
     choice = _bnf_seq(stream, gram)
