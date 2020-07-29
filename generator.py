@@ -16,6 +16,23 @@ logging.basicConfig()
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
 
+class Close(grammar.RHSItem):
+    """A pseudo-element that marks the end of an RHS
+    expansion, allowing us to integrate a stack into the
+    the stackless representation.
+    When we expand an RHSItem into a sequence of RHSItems,
+    we will mark the end of the sequence with a Close.
+    """
+    def __init__(self, lhs: grammar.RHSItem, expansion: grammar.RHSItem):
+        self.construct = lhs
+        self.expansion = expansion
+
+    # We leave unimplemented some methods that other RHS items must have;
+    # we never expand a Close into another construct.
+
+    def __str__(self) -> str:
+        """Not shown in standard representation of parse state"""
+        return ""
 
 class Gen_State:
     """The state of sentence generation.  Each step of the
@@ -23,6 +40,8 @@ class Gen_State:
     We keep a prefix (already generated terminals), a suffix
     (symbols yet to be expanded), and some bookkeeping
     for the budget.
+    2020-07-29: Adding a stack on the side while retaining
+    "almost stackless" representation.
     """
 
     def __init__(self, gram: grammar.Grammar, budget: int):
@@ -30,6 +49,8 @@ class Gen_State:
         # Suffix is in reverse order, so that
         # we can push and pop symbols efficiently
         self.suffix: List[grammar.RHSItem] = [gram.start]
+        # A stack of constructs that are currently being expanded.
+        self.stack: List[grammar.RHSItem] = []
         # The full budget for a generated sentence; does not change
         self.budget = budget
         # The budget margin, initially for the start symbol.
@@ -40,10 +61,39 @@ class Gen_State:
         # + self.margin should equal self.budget
         self.budget_used = 0
 
+
     def __str__(self) -> str:
         """Looks like foobar @ A(B|C)*Dx,8"""
         suffix = "".join([str(sym) for sym in reversed(self.suffix)])
+        # stack = "\n".join([f"[{sym}" for sym in self.stack])
         return f"{self.text} @ {suffix}"
+
+    def _open_nonterm(self, item: grammar.RHSItem):
+        """We are currently working on this item"""
+        self.stack.append(item)
+
+    def _close_nonterm(self):
+        """Done working on some item"""
+        self.stack.pop()
+
+    def stack_state_str(self) -> str:
+        """The stack state is not shown by __str__; use stack_state_str
+        to see the entire state
+        """
+        indent = "   |" # Indentation for each level
+        repr = ""
+        level = 0
+        for frame in self.stack:
+            repr += f"{level * indent}{frame}\n"
+            level += 1
+        repr += level * indent
+        for item in self.suffix:
+            if isinstance(item, Close):
+                level -= 1
+                repr += f"\n{level * indent}"
+            else:
+                repr += str(item)
+        return repr
 
 
     # A single step has two parts, because we need to let a
@@ -54,19 +104,34 @@ class Gen_State:
     # to be taken.  If the first element of the suffix is a
     # terminal symbol, the only operation is to shift it to
     # the end of the prefix.
+    # Added 2020-07-29:  'Close' symbols mark the end of
+    # a production and trigger popping an element from
+    # a stack of currently open RHS elements.  The stack is
+    # for bookkeeping only; it does not otherwise affect
+    # generation of sentences.
     #
 
     # Call has_more before attempting a move
     def has_more(self) -> bool:
-        # We must expand BEFORE checking length,
-        # because we could have a sequence of empty sequences
-        while len(self.suffix) > 0 and \
-                isinstance(self.suffix[-1], grammar._Seq):
-            sym = self.suffix.pop()
-            log.debug(f"Expanding sequence '{sym}'")
-            # FIFO access order --- reversed on rest
-            for el in reversed(sym.items):
-                self.suffix.append(el)
+        """Are there more symbols to shift or expand?
+        Called BEFORE a call to choose; side effect of
+        sliding past Close symbols and expanding _Seq symbols
+        to get to the symbol to consider.
+        """
+        while len(self.suffix) > 0:
+            # Slide over Close and expand _Seq
+            sym = self.suffix[-1]
+            if isinstance(sym, grammar._Seq):
+                self.suffix.pop()
+                log.debug(f"Expanding sequence '{sym}'")
+                # FIFO access order --- reversed on rest
+                for el in reversed(sym.items):
+                    self.suffix.append(el)
+            elif isinstance(sym, Close):
+                self._close_nonterm()
+                self.suffix.pop()
+            else:
+                break
         return len(self.suffix) > 0
 
 
@@ -98,6 +163,8 @@ class Gen_State:
     def expand(self, expansion: grammar.RHSItem):
         sym = self.suffix.pop()
         log.debug(f"{sym} -> {expansion}")
+        self._open_nonterm(sym)
+        self.suffix.append(Close(sym, expansion))
         self.suffix.append(expansion)
         # Budget adjustment. Did we use some of the margin?
         spent = expansion.min_tokens() - sym.min_tokens()
@@ -116,6 +183,7 @@ def random_sentence(g: grammar.Grammar, budget: int=20):
         if state.is_terminal():
             state.shift()
         else:
+            print(state.stack_state_str())
             choices = state.choices()
             choice = random.choice(choices)
             log.debug(f"Choosing {choice}")
