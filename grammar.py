@@ -135,7 +135,7 @@ class _Kleene(RHSItem):
 
     # A* is like choice between empty and AA*
     def choices(self, budget: int) -> List["RHSItem"]:
-        if budget >= self.min_tokens():
+        if budget >= self.child.min_tokens():
             return [self._recursive_case, self._base_case]
         else:
             return [self._base_case]
@@ -199,8 +199,6 @@ class Grammar(object):
         for sym_name in self.symbols:
             sym = self.symbols[sym_name]
             print(f"# {sym_name}, min length {self.symbols[sym_name].min_tokens()}")
-            #for rhs in self.productions[sym_name]:
-            #   print(f"{sym_name} ::= {str(rhs)} ; \n#[length {rhs.min_tokens()}]")
             print(f"{sym_name} ::= {sym.expansions}")
             print()
 
@@ -244,8 +242,6 @@ class Grammar(object):
         if text not in self.literals:
             self.literals[text] = _Literal(text)
         return self.literals[text]
-
-    # FIXME: Consider merging choices, sequences, and alternations
 
     def seq(self):
         return _Seq()
