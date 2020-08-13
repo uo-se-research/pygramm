@@ -63,6 +63,9 @@ class _Symbol(RHSItem):
     def __str__(self) -> str:
         return self.name
 
+    def __repr__(self) -> str:
+        return f"_Symbol({repr(self.name)})"
+
     def set_min_length(self, n_tokens: int):
         """Set by grammar.calc_min_lengths
         AFTER the full grammar has been constructed
@@ -89,6 +92,9 @@ class _Literal(RHSItem):
     def __str__(self) -> str:
         return f'"{self.text}"'
 
+    def __repr__(self) -> str:
+        return f'_Literal("{self.text}")'
+
     def min_tokens(self) -> int:
         return 1
 
@@ -111,6 +117,10 @@ class _Seq(RHSItem):
             return "/* empty */"
         return " ".join(str(item) for item in self.items)
 
+    def __repr__(self) -> str:
+        items = ", ".join(repr(i) for i in self.items)
+        return f"_Seq([{items}])"
+
     def min_tokens(self) -> int:
         return sum(item.min_tokens() for item in self.items)
 
@@ -128,6 +138,9 @@ class _Kleene(RHSItem):
 
     def __str__(self) -> str:
         return f"({str(self.child)})*"
+
+    def __repr__(self) -> str:
+        return f"_Kleene({repr(self.child)})"
 
     def min_tokens(self) -> int:
         """Could be repeated 0 times"""
@@ -151,6 +164,10 @@ class _Choice(RHSItem):
     def __str__(self) -> str:
         disjunct_str = " | ".join(str(item) for item in self.items)
         return f"({disjunct_str})"
+
+    def __repr__(self) -> str:
+        choices = ", ".join(repr(i) for i in self.items)
+        return f"_Choice([{choices}])"
 
     def min_tokens(self) -> int:
         return min(item.min_tokens() for item in self.items)
