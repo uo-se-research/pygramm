@@ -1,7 +1,7 @@
 """Grammar structure
 M Young, June 2020
 """
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Callable
 
 import logging
 logging.basicConfig()
@@ -9,9 +9,42 @@ log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
 
 
-
-
 HUGE = 999_999_999   # Larger than any sentence we will generate
+
+class Transform_Base:
+    """Abstract base class for transforms.
+    RHSItem objects are responsible for walking
+    the tree and calling 'apply' at each node.
+    For any node that should not be transformed,
+    'apply' should return the node as-is, i.e.,
+    if <we should do something here>:
+        return <some transformation of item>
+    else:
+        return item
+    """
+    def apply(self, item: 'RHSItem') -> 'RHSItem':
+        raise NotImplementedError(f"{self.__class__} needs 'apply' method")
+
+    def setup(self, g: "Grammar"):
+        """Optional setup step"""
+        pass
+
+    def teardown(self, g: "Grammar"):
+        """Optional teardown step"""
+        pass
+
+    def transform_all_rhs(self, g: "Grammar"):
+        """Transform RHS of each production.  Does
+        not prune productions (yet).
+        """
+        self.setup(g)
+        for name in g.symbols:
+            sym = g.symbols[name]
+            rhs = sym.expansions
+            transformed = rhs.xform(self)
+            if rhs is not transformed:
+                sym.expansions = rhs
+        self.teardown(g)
 
 
 class RHSItem(object):
@@ -53,6 +86,11 @@ class RHSItem(object):
     def __str__(self) ->str:
         raise NotImplementedError(f"Missing __str__ method in {self.__class__}!")
 
+    def xform(self, t: Transform_Base):
+        """Apply the transformation x to node.
+        Should walk (postorder) and then apply.
+        """
+        raise NotImplementedError(f"Needs transformation hook")
 
 class _Symbol(RHSItem):
     def __init__(self, name: str):
@@ -84,6 +122,13 @@ class _Symbol(RHSItem):
         # point just one alternative
         return [ self.expansions ]
 
+    def xform(self, t: Transform_Base) -> RHSItem:
+        """Apply the transformation x to node.
+        Should walk (postorder) and then apply.
+        """
+        return t.apply(self)
+
+
 class _Literal(RHSItem):
 
     def __init__(self, text: str):
@@ -102,6 +147,11 @@ class _Literal(RHSItem):
         """False for everything except literals"""
         return True
 
+    def xform(self, t: Transform_Base) -> RHSItem:
+        """Apply the transformation x to node.
+        Should walk (postorder) and then apply.
+        """
+        return t.apply(self)
 
 
 class _Seq(RHSItem):
@@ -123,6 +173,16 @@ class _Seq(RHSItem):
 
     def min_tokens(self) -> int:
         return sum(item.min_tokens() for item in self.items)
+
+    def xform(self, t: Transform_Base) -> RHSItem:
+        """Recursively transforms children before self"""
+        for i in range(len(self.items)):
+            item = self.items[i]
+            transformed = item.xform(t)
+            if item is not transformed:
+                self.items[i] = transformed
+        return t.apply(self)
+
 
 
 class _Kleene(RHSItem):
@@ -153,6 +213,16 @@ class _Kleene(RHSItem):
         else:
             return [self._base_case]
 
+    def xform(self, t: Transform_Base) -> RHSItem:
+        """Apply the transformation x to node.
+        Should walk (postorder) and then apply.
+        """
+        transformed = self.child.xform(t)
+        if self.child is not transformed:
+            self.child = transformed
+        return t.apply(self)
+
+
 class _Choice(RHSItem):
 
     def __init__(self):
@@ -176,7 +246,14 @@ class _Choice(RHSItem):
         return [item for item in self.items    \
                 if item.min_tokens() <= budget]
 
-
+    def xform(self, t: Transform_Base) -> RHSItem:
+        """Recursively transforms children before self"""
+        for i in range(len(self.items)):
+            item = self.items[i]
+            transformed = item.xform(t)
+            if item is not transformed:
+                self.items[i] = transformed
+        return t.apply(self)
 
 class Grammar(object):
     """A grammar is a collection of productions.
@@ -323,5 +400,29 @@ class Grammar(object):
         # need to know the minimum number of tokens produced by
         # each non-terminal (and so indirectly by each production)
         self._calc_min_tokens()
-    
+
+
+class Factor_Empty(Transform_Base):
+    """Add a new symbol EMPTY that is used in place
+    of any empty sequence on the right-hand-side of a
+    production.
+    """
+    def __init__(self, g: Grammar):
+        self.sym = g.symbol("EMPTY")
+        self.sym.expansions = _Seq()
+
+    def apply(self, item: 'RHSItem') -> 'RHSItem':
+        if isinstance(item, _Seq) and len(item.items) == 0:
+            return self.sym
+        else:
+            return item
+
+    def teardown(self, g: Grammar):
+        """Add AFTER transformation so that we
+        don't transform this single instance of
+        the empty sequence.
+        """
+        g.add_cfg_prod(self.sym, self.sym.expansions)
+
+
 
