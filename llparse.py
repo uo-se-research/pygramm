@@ -144,7 +144,7 @@ def _bnf_seq(stream: TokenStream, gram: grammar.Grammar) -> grammar.RHSItem:
         return gram.seq()  # The empty sequence
     first = _bnf_primary(stream, gram)
     # Could be a single item
-    if stream.peek().kind == TokenCat.TERMINATOR:
+    if stream.peek().kind not in FIRST_SYM:
         return first
     seq = gram.seq()
     seq.append(first)
