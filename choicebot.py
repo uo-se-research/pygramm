@@ -20,6 +20,10 @@ def cli() -> object:
     parser.add_argument("budget", type=int,
                         default=50,
                         help="Maximum length string to generate, default 50")
+    parser.add_argument("--esc", dest="escapes",
+                        default=False,
+                        action="store_const", const=True,
+                        help="Expand unicode escapes in grammar")
     return parser.parse_args()
 
 def choose_from(choices: list) -> int:
@@ -38,7 +42,8 @@ def choose_from(choices: list) -> int:
         print("Bad choice. Try again.")
 
 
-def generate_sentence(g: grammar.Grammar, budget: int):
+def generate_sentence(g: grammar.Grammar, budget: int,
+                      escapes=False):
     """A generator of random sentences with external control"""
     state = generator.Gen_State(g, budget)
     while state.has_more():
@@ -52,6 +57,8 @@ def generate_sentence(g: grammar.Grammar, budget: int):
             else:
                 choice = choices[0]
             state.expand(choice)
+    if escapes:
+        state.text = state.text.encode().decode('unicode-escape')
     print(f"Final: \n{state.text}")
 
 def main():
@@ -60,7 +67,7 @@ def main():
     transform = grammar.Factor_Empty(gram)
     transform.transform_all_rhs(gram)
     budget = args.budget
-    generate_sentence(gram, budget)
+    generate_sentence(gram, budget, args.escapes)
 
 if __name__ == "__main__":
     main()
