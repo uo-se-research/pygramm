@@ -57,6 +57,8 @@ def generate_sentence(g: grammar.Grammar, budget: int):
 def main():
     args = cli()
     gram = llparse.parse(args.grammar)
+    transform = grammar.Factor_Empty(gram)
+    transform.transform_all_rhs(gram)
     budget = args.budget
     generate_sentence(gram, budget)
 
