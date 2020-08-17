@@ -171,7 +171,8 @@ class Gen_State:
         self.margin -= spent
 
 
-def random_sentence(g: grammar.Grammar, budget: int=20):
+def random_sentence(g: grammar.Grammar, budget: int=20,
+                    interpret_escapes: bool = False):
     """A generator of random sentences, without external control"""
     while g.start.min_tokens() > budget:
         log.info(f"Bumping budget by minimum requirement {g.start.min_tokens()}")
@@ -188,6 +189,9 @@ def random_sentence(g: grammar.Grammar, budget: int=20):
             choice = random.choice(choices)
             log.debug(f"Choosing {choice}")
             state.expand(choice)
+    txt = state.text
+    if interpret_escapes:
+        txt = txt.encode().decode('unicode-escape')
     print(f"Final: \n{state.text}")
 
 

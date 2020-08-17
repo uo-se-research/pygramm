@@ -277,16 +277,20 @@ class Grammar(object):
 
         # Parsing BNF produces two tables,
         #  mapping non-terminal symbols to productions
-        #  and terminal symbols to strings
-        self.productions : Dict[str, list] = dict()
+        #  and terminal symbols to strings.
+        # Productions is now a temporary and internal
+        # variable --- finalization puts the expansion of
+        # each item into the _Symbol objects in self.symbols
+        #
+        self._productions: Dict[str, list] = dict()
 
     def add_cfg_prod(self, lhs: _Symbol, rhs: list):
         if self.start is None:
             self.start = lhs
         lhs_ident = lhs.name
-        if not lhs_ident in self.productions:
-            self.productions[lhs_ident] = []
-        self.productions[lhs_ident].append(rhs)
+        if not lhs_ident in self._productions:
+            self._productions[lhs_ident] = []
+        self._productions[lhs_ident].append(rhs)
 
     def dump(self):
         """Dump the grammar to stdout with annotation"""
@@ -351,7 +355,7 @@ class Grammar(object):
 
     def _calc_min_tokens(self):
         """Calculate the minimum length of each non-terminal,
-        updating the initial estimate of HUGE.
+        updating the initial estimate of HUGE.  This 
         """
         # We will iterate *down* to a fixed point from an
         # initial over-estimate of phrase length
@@ -364,12 +368,10 @@ class Grammar(object):
             for name in self.symbols:
                 sym = self.symbols[name]
                 prior_estimate = sym.min_tokens()
-                for rhs in self.productions[name]:
-                    new_estimate = rhs.min_tokens()
-                    if new_estimate < prior_estimate:
-                        changed = True
-                        prior_estimate = new_estimate
-                        sym.set_min_length(new_estimate)
+                new_estimate = sym.expansions.min_tokens()
+                if new_estimate < prior_estimate:
+                    changed = True
+                    sym.set_min_length(new_estimate)
         # Sanity check:  Did we find a length for each symbol?
         for name in self.symbols:
             assert self.symbols[name].min_tokens() < HUGE, \
@@ -384,9 +386,9 @@ class Grammar(object):
         # Connect non-terminals to their right-hand-sides,
         # creating a new _Choice node for non-terminals that
         # have multiple productions.
-        for name in self.productions:
+        for name in self._productions:
             symbol = self.symbols[name]
-            expansions = self.productions[name]
+            expansions = self._productions[name]
             if len(expansions) == 1:
                 symbol.expansions = expansions[0]
             elif len(expansions) > 1:
@@ -396,6 +398,9 @@ class Grammar(object):
                 self.symbols[name].expansions = choices
             else:
                 raise Exception(f"No productions for {name}")
+        # Do not use self._productions further; the master copy
+        # is in the expansions member of each symbol
+        self._productions = []
         # For generation with "budgets" (length limits), we also
         # need to know the minimum number of tokens produced by
         # each non-terminal (and so indirectly by each production)
@@ -409,7 +414,9 @@ class Factor_Empty(Transform_Base):
     """
     def __init__(self, g: Grammar):
         self.sym = g.symbol("EMPTY")
-        self.sym.expansions = _Seq()
+        self.sym.set_min_length(0)
+        # But this one must not be transformed!
+        self.sym.expansions = _Literal("DUMMY LITERAL")
 
     def apply(self, item: 'RHSItem') -> 'RHSItem':
         if isinstance(item, _Seq) and len(item.items) == 0:
@@ -418,11 +425,10 @@ class Factor_Empty(Transform_Base):
             return item
 
     def teardown(self, g: Grammar):
-        """Add AFTER transformation so that we
+        """Fix AFTER transformation so that we
         don't transform this single instance of
         the empty sequence.
         """
-        g.add_cfg_prod(self.sym, self.sym.expansions)
-
+        self.sym.expansions = _Seq()
 
 
