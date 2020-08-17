@@ -4,8 +4,8 @@ Michal Young, adapted Summer 2020 from CIS 211 projects,
 revised in discussion with Ziyad Alsaeed.
 """
 
-from lex import TokenStream, TokenCat
-import grammar
+from pygramm.lex import TokenStream, TokenCat
+import pygramm.grammar
 from typing import TextIO, List
 
 import logging
@@ -25,7 +25,7 @@ def parse(srcfile: TextIO) -> grammar.Grammar:
     Populates TERMINALS and NONTERMINALS
     """
     stream = TokenStream(srcfile)
-    gram = grammar.Grammar()
+    gram = pygramm.grammar.Grammar()
     _grammar(stream, gram)
     gram.finalize()
     return gram
@@ -64,7 +64,7 @@ def require(stream: TokenStream, category: TokenCat, desc: str = "", consume=Fal
 #  group ::= '(' bnf_rhs ')'
 #
 
-def _grammar(stream: TokenStream, gram: grammar.Grammar) :
+def _grammar(stream: TokenStream, gram: pygramm.grammar.Grammar) :
     """
     grammar ::= block ;
     (Implicitly returns dicts in the grammar module)
@@ -74,7 +74,7 @@ def _grammar(stream: TokenStream, gram: grammar.Grammar) :
     return
 
 
-def _block(stream: TokenStream, gram: grammar.Grammar):
+def _block(stream: TokenStream, gram: pygramm.grammar.Grammar):
     """
     block ::= { production }
     (Adds to dicts in grammar module)
@@ -85,7 +85,7 @@ def _block(stream: TokenStream, gram: grammar.Grammar):
     return
 
 
-def _statement(stream: TokenStream, gram: grammar.Grammar):
+def _statement(stream: TokenStream, gram: pygramm.grammar.Grammar):
     """
     _statement == production | merge
     (left-factored for lookahead)
@@ -124,7 +124,7 @@ def _merge_symbols(stream) -> List[str]:
 # 'first' items of 'symbol'
 FIRST_SYM = [TokenCat.IDENT, TokenCat.STRING, TokenCat.CHAR, TokenCat.LPAREN ]
 
-def _bnf_rhs(stream: TokenStream, gram: grammar.Grammar) -> grammar.RHSItem:
+def _bnf_rhs(stream: TokenStream, gram: pygramm.grammar.Grammar) -> pygramm.grammar.RHSItem:
     choice = _bnf_seq(stream, gram)
     # Special case: Only one alternative
     if stream.peek().kind != TokenCat.DISJUNCT:
@@ -137,7 +137,7 @@ def _bnf_rhs(stream: TokenStream, gram: grammar.Grammar) -> grammar.RHSItem:
         choices.append(choice)
     return choices
 
-def _bnf_seq(stream: TokenStream, gram: grammar.Grammar) -> grammar.RHSItem:
+def _bnf_seq(stream: TokenStream, gram: pygramm.grammar.Grammar) -> pygramm.grammar.RHSItem:
     """Sequence of rhs items"""
     # Could be an empty list ...
     if stream.peek().kind == TokenCat.TERMINATOR:
@@ -155,7 +155,7 @@ def _bnf_seq(stream: TokenStream, gram: grammar.Grammar) -> grammar.RHSItem:
 
 #  rhs_primary ::= symbol [ '*' ]  # Kleene
 
-def _bnf_primary(stream: TokenStream, gram: grammar.Grammar) -> grammar.RHSItem:
+def _bnf_primary(stream: TokenStream, gram: pygramm.grammar.Grammar) -> pygramm.grammar.RHSItem:
     """A symbol or group, possibly with kleene star"""
     item = _bnf_symbol(stream, gram)
     # log.debug(f"Primary: {item}")
@@ -165,7 +165,7 @@ def _bnf_primary(stream: TokenStream, gram: grammar.Grammar) -> grammar.RHSItem:
     else:
         return item
 
-def _bnf_symbol(stream: TokenStream, gram: grammar.Grammar) -> grammar.RHSItem:
+def _bnf_symbol(stream: TokenStream, gram: pygramm.grammar.Grammar) -> pygramm.grammar.RHSItem:
     """A single identifier or literal, or a parenthesized group"""
     if stream.peek().kind == TokenCat.LPAREN:
         stream.take()
@@ -185,7 +185,7 @@ def _bnf_symbol(stream: TokenStream, gram: grammar.Grammar) -> grammar.RHSItem:
 
 
 
-def _lex_rhs(stream: TokenStream, gram: grammar.Grammar) -> grammar._Literal:
+def _lex_rhs(stream: TokenStream, gram: pygramm.grammar.Grammar) -> pygramm.grammar._Literal:
     """FIXME: How should we define lexical productions?"""
     token = stream.take()
     if (token.kind == TokenCat.STRING or
