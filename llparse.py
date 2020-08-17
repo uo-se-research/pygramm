@@ -20,7 +20,7 @@ class InputError(Exception):
     pass
 
 
-def parse(srcfile: TextIO) -> grammar.Grammar:
+def parse(srcfile: TextIO) -> pygramm.grammar.Grammar:
     """Interface function to LL parser of BNF.
     Populates TERMINALS and NONTERMINALS
     """
