@@ -110,9 +110,8 @@ def _statement(stream: TokenStream, gram: Grammar):
 def _merge_symbols(stream) -> List[str]:
     """IDENT @ ':::' '[' IDENT {',' IDENT } ']' """
     require(stream, TokenCat.LBRACK, consume=True)
-    merge_list = []
     # Assume at least one item in merge list
-    merge_list.append(stream.take().value)
+    merge_list = [stream.take().value]
     while stream.peek().kind == TokenCat.COMMA:
         stream.take()
         merge_list.append(stream.take().value)
