@@ -1,15 +1,17 @@
 """Grammar structure
 M Young, June 2020
 """
-from typing import List, Dict, Optional, Callable
-
 import logging
+
+from typing import List, Dict, Optional
+
 logging.basicConfig()
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
 
 
 HUGE = 999_999_999   # Larger than any sentence we will generate
+
 
 class Transform_Base:
     """Abstract base class for transforms.
@@ -62,14 +64,14 @@ class RHSItem(object):
         """
         raise NotImplementedError("min_tokens not implemented")
 
-    def choices(self, budget: int=HUGE) -> List["RHSItem"]:
+    def choices(self, budget: int = HUGE) -> List["RHSItem"]:
         """List of choices for this item.
         FIXME: What does a sequence return?  First item or
         whole sequence?  
         """
         raise NotImplementedError("n_choices not implemented")
 
-    def expand(self, choice: int=0) -> List["RHSItem"]:
+    def expand(self, choice: int = 0) -> List["RHSItem"]:
         """Return the chosen expansion"""
         raise NotImplementedError("expand not implemented")
 
@@ -83,7 +85,7 @@ class RHSItem(object):
         """
         return self.min_tokens() == 0
 
-    def __str__(self) ->str:
+    def __str__(self) -> str:
         raise NotImplementedError(f"Missing __str__ method in {self.__class__}!")
 
     def xform(self, t: Transform_Base):
@@ -91,6 +93,7 @@ class RHSItem(object):
         Should walk (postorder) and then apply.
         """
         raise NotImplementedError(f"Needs transformation hook")
+
 
 class _Symbol(RHSItem):
     def __init__(self, name: str):
@@ -120,7 +123,7 @@ class _Symbol(RHSItem):
         # Note 'expansions' is a single RHS item that
         # may br a '_Choice' or something else; so at this
         # point just one alternative
-        return [ self.expansions ]
+        return [self.expansions]
 
     def xform(self, t: Transform_Base) -> RHSItem:
         """Apply the transformation x to node.
@@ -157,7 +160,7 @@ class _Literal(RHSItem):
 class _Seq(RHSItem):
     """Sequence of grammar items"""
     def __init__(self):
-        self.items = [ ]
+        self.items = []
 
     def append(self, item: RHSItem):
         self.items.append(item)
@@ -182,7 +185,6 @@ class _Seq(RHSItem):
             if item is not transformed:
                 self.items[i] = transformed
         return t.apply(self)
-
 
 
 class _Kleene(RHSItem):
@@ -254,6 +256,7 @@ class _Choice(RHSItem):
             if item is not transformed:
                 self.items[i] = transformed
         return t.apply(self)
+
 
 class Grammar(object):
     """A grammar is a collection of productions.
@@ -430,5 +433,3 @@ class Factor_Empty(Transform_Base):
         the empty sequence.
         """
         self.sym.expansions = _Seq()
-
-
