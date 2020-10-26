@@ -2,11 +2,12 @@
 User prompted for each choice.
 """
 
-import llparse
-import generator
-import grammar
-import random
 import argparse
+
+from pygramm.llparse import *
+from pygramm.generator import Gen_State
+from pygramm.grammar import Grammar, Factor_Empty
+
 
 def cli() -> object:
     """Command line interface,
@@ -26,6 +27,7 @@ def cli() -> object:
                         help="Expand unicode escapes in grammar")
     return parser.parse_args()
 
+
 def choose_from(choices: list) -> int:
     """Obtain an integer choice from user.
     Returned int should be index of choice.
@@ -42,10 +44,10 @@ def choose_from(choices: list) -> int:
         print("Bad choice. Try again.")
 
 
-def generate_sentence(g: grammar.Grammar, budget: int,
+def generate_sentence(g: Grammar, budget: int,
                       escapes=False):
     """A generator of random sentences with external control"""
-    state = generator.Gen_State(g, budget)
+    state = Gen_State(g, budget)
     while state.has_more():
         print(f"=> {state} margin/budget {state.margin}/{state.budget}")
         if state.is_terminal():
@@ -61,13 +63,15 @@ def generate_sentence(g: grammar.Grammar, budget: int,
         state.text = state.text.encode().decode('unicode-escape')
     print(f"Final: \n{state.text}")
 
+
 def main():
     args = cli()
-    gram = llparse.parse(args.grammar)
-    transform = grammar.Factor_Empty(gram)
+    gram = parse(args.grammar)
+    transform = Factor_Empty(gram)
     transform.transform_all_rhs(gram)
     budget = args.budget
     generate_sentence(gram, budget, args.escapes)
+
 
 if __name__ == "__main__":
     main()
