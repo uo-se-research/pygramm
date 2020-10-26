@@ -6,7 +6,7 @@ order, with no boundaries between symbols from expanding
 different non-terminals).
 """
 
-import grammar
+from pygramm.grammar import Grammar, RHSItem, _Seq, _Literal
 from typing import List
 
 import random
@@ -16,14 +16,15 @@ logging.basicConfig()
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
 
-class Close(grammar.RHSItem):
+
+class Close(RHSItem):
     """A pseudo-element that marks the end of an RHS
     expansion, allowing us to integrate a stack into the
     the stackless representation.
     When we expand an RHSItem into a sequence of RHSItems,
     we will mark the end of the sequence with a Close.
     """
-    def __init__(self, lhs: grammar.RHSItem, expansion: grammar.RHSItem):
+    def __init__(self, lhs: RHSItem, expansion: RHSItem):
         self.construct = lhs
         self.expansion = expansion
 
@@ -33,6 +34,7 @@ class Close(grammar.RHSItem):
     def __str__(self) -> str:
         """Not shown in standard representation of parse state"""
         return ""
+
 
 class Gen_State:
     """The state of sentence generation.  Each step of the
@@ -44,13 +46,13 @@ class Gen_State:
     "almost stackless" representation.
     """
 
-    def __init__(self, gram: grammar.Grammar, budget: int):
+    def __init__(self, gram: Grammar, budget: int):
         self.text = ""
         # Suffix is in reverse order, so that
         # we can push and pop symbols efficiently
-        self.suffix: List[grammar.RHSItem] = [gram.start]
+        self.suffix: List[RHSItem] = [gram.start]
         # A stack of constructs that are currently being expanded.
-        self.stack: List[grammar.RHSItem] = []
+        self.stack: List[RHSItem] = []
         # The full budget for a generated sentence; does not change
         self.budget = budget
         # The budget margin, initially for the start symbol.
@@ -61,14 +63,13 @@ class Gen_State:
         # + self.margin should equal self.budget
         self.budget_used = 0
 
-
     def __str__(self) -> str:
         """Looks like foobar @ A(B|C)*Dx,8"""
         suffix = "".join([str(sym) for sym in reversed(self.suffix)])
         # stack = "\n".join([f"[{sym}" for sym in self.stack])
         return f"{self.text} @ {suffix}"
 
-    def _open_nonterm(self, item: grammar.RHSItem):
+    def _open_nonterm(self, item: RHSItem):
         """We are currently working on this item"""
         self.stack.append(item)
 
@@ -80,7 +81,7 @@ class Gen_State:
         """The stack state is not shown by __str__; use stack_state_str
         to see the entire state
         """
-        indent = "   |" # Indentation for each level
+        indent = "   |"  # Indentation for each level
         repr = ""
         level = 0
         for frame in self.stack:
@@ -94,7 +95,6 @@ class Gen_State:
             else:
                 repr += str(item)
         return repr
-
 
     # A single step has two parts, because we need to let a
     # an external agent control the expansion.  For
@@ -121,7 +121,7 @@ class Gen_State:
         while len(self.suffix) > 0:
             # Slide over Close and expand _Seq
             sym = self.suffix[-1]
-            if isinstance(sym, grammar._Seq):
+            if isinstance(sym, _Seq):
                 self.suffix.pop()
                 log.debug(f"Expanding sequence '{sym}'")
                 # FIFO access order --- reversed on rest
@@ -134,15 +134,14 @@ class Gen_State:
                 break
         return len(self.suffix) > 0
 
-
     # Terminal symbols can only be shifted to prefix
     def is_terminal(self) -> bool:
-        sym = self.suffix[-1] # FIFO access order
-        return isinstance(sym, grammar._Literal)
+        sym = self.suffix[-1]  # FIFO access order
+        return isinstance(sym, _Literal)
 
     def shift(self):
         sym = self.suffix.pop()
-        assert isinstance(sym, grammar._Literal)
+        assert isinstance(sym, _Literal)
         self.text += sym.text
         self.budget_used += 1
 
@@ -150,7 +149,7 @@ class Gen_State:
     # provide an opportunity for external control of options.
     # Each such element has a method to present a set of
     # choices within budget.
-    def choices(self) -> List[grammar.RHSItem]:
+    def choices(self) -> List[RHSItem]:
         """The RHS elements that can be chosen
         for the next step.  (Possibly just one.)
         """
@@ -160,7 +159,7 @@ class Gen_State:
     # External agent can pick one of the choices to replace
     # the current symbol.  Budget will be adjusted by minimum
     # cost of that expansion.
-    def expand(self, expansion: grammar.RHSItem):
+    def expand(self, expansion: RHSItem):
         sym = self.suffix.pop()
         log.debug(f"{sym} -> {expansion}")
         self._open_nonterm(sym)
@@ -171,7 +170,7 @@ class Gen_State:
         self.margin -= spent
 
 
-def random_sentence(g: grammar.Grammar, budget: int=20,
+def random_sentence(g: Grammar, budget: int = 20,
                     interpret_escapes: bool = False):
     """A generator of random sentences, without external control"""
     while g.start.min_tokens() > budget:
@@ -193,10 +192,3 @@ def random_sentence(g: grammar.Grammar, budget: int=20,
     if interpret_escapes:
         txt = txt.encode().decode('unicode-escape')
     print(f"Final: \n{state.text}")
-
-
-
-
-
-
-

@@ -95,6 +95,7 @@ def all_token_re() -> str:
 
 TOKENS_PAT = re.compile(all_token_re())
 
+
 def debug_matches(s: str):
     """Debugging: What would match for each of the
     patterns in TokenCat?
@@ -249,4 +250,3 @@ if __name__ == "__main__":
     while tokens.has_more():
         print(f"Token: {tokens.take()}")
         input("Press enter to continue")
-
