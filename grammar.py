@@ -1,5 +1,5 @@
 """Grammar structure
-M Young, June 2020
+M Young, June-August 2020
 """
 import logging
 
@@ -45,7 +45,7 @@ class Transform_Base:
             rhs = sym.expansions
             transformed = rhs.xform(self)
             if rhs is not transformed:
-                sym.expansions = rhs
+                sym.expansions = transformed
         self.teardown(g)
 
 
@@ -121,7 +121,7 @@ class _Symbol(RHSItem):
     # Symbols and alternations provide a 'choices' operation
     def choices(self, budget: int) -> List[RHSItem]:
         # Note 'expansions' is a single RHS item that
-        # may br a '_Choice' or something else; so at this
+        # may be a '_Choice' or something else; so at this
         # point just one alternative
         return [self.expansions]
 

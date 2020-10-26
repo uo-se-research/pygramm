@@ -18,11 +18,44 @@ as LR parsing.
 
 ## Work in progress
 
-First step is just to read a grammar in BNF and try 
-a bit of very simple processing. 
+### Done
+* Parse BNF (`llparse.py`) and create an internal form. 
+  The BNF form is extended with Kleene *, but a grammar
+  in pure BNF without Kleene is also fine.  
+* Internal structure (`grammar.py`) represents the BNF 
+  structure directly.  The Grammar object contains a list
+  of symbols, each of which has a single `expansion` 
+  (which could be a sequence or a choice).  The following two
+  grammars will produce precisely the same internal form:
+  ```
+  S ::= "a";
+  S ::= "b";
+  ```
+  and 
+  ```
+  S ::= "a" | "b";
+  ```
+* A phrase generator (`generator.py`), together with some
+  grammar analysis in `grammar.py`, can produce sentences
+  within a given length limit (the _budget_) with or without
+  direction.  See `choicebot.py` for an example of how
+  grammar choices can be controlled. 
+  
+### To Do
 
-We want to distinguish lexical from CFG productions even for 
-sentence generation because we will want different tactics for 
-tokens than for RHS.  In CFG we budget for length of sentence. 
-In lexical productions we choose between new and previously 
-used tokens.  
+* Distinguish lexical from CFG productions even for 
+  sentence generation because we will want different tactics for 
+  tokens than for RHS.  In CFG we budget for length of sentence. 
+  In lexical productions we should choose between new and previously 
+  used tokens.  Currently the BNF goes all the way to string
+  constants, always.  The works for the kinds of grammars that 
+  [Glade](https://github.com/kuhy/glade) learns, but it is
+  not really ideal for generating useful program inputs. 
+* Related to the prior point:  Infer a good boundary between
+  CFG and lexical structure.  In conventional grammar processing, 
+  a developer makes this distinction.  For grammar learners
+  like Glade, though, the distinction is not trivial to recognize. 
+* Add classic grammar analyses, starting with analyses for LL(1)
+  grammars (first, follow), then checking for conflicts, and 
+  likewise for LALR(1) and/or LR(1).
+* Add simple transformations, such as left-factoring for LL(1).
