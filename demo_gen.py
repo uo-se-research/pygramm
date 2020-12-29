@@ -3,6 +3,7 @@
 from pygramm.grammar import Factor_Empty
 from pygramm.llparse import *
 from pygramm.generator import *
+from pygramm.binary_choice import Binary_Choices
 
 f = open("data/english.txt")
 gram = parse(f)
@@ -15,7 +16,7 @@ gram = parse(f)
 # xform = grammar.Factor_Empty(gram)
 # xform.transform_all_rhs(gram)
 
-binarize = binary_choice.Binary_Choices(gram)
+binarize = Binary_Choices(gram)
 binarize.transform_all_rhs(gram)
 
 print("*** Grammar (repr): ***")
