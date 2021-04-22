@@ -263,7 +263,8 @@ class Grammar(object):
     Productions are indexed by non-terminal
     symbols.
     """
-    def __init__(self):
+    def __init__(self, file_name: str):
+        self.gram_name = file_name
         self.ready = False  # Pre-processing done
         self.start: Optional[_Symbol] = None   # Replace with start symbol
 
