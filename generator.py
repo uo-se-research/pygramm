@@ -28,6 +28,10 @@ class Close(RHSItem):
         self.construct = lhs
         self.expansion = expansion
 
+    def pot_tokens(self) -> int:
+        """Does not expand into any tokens"""
+        return 0
+
     # We leave unimplemented some methods that other RHS items must have;
     # we never expand a Close into another construct.
 
@@ -46,7 +50,7 @@ class Gen_State:
     "almost stackless" representation.
     """
 
-    def __init__(self, gram: Grammar, budget: int):
+    def __init__(self, gram: Grammar, budget: int, min_length: int=0):
         self.text = ""
         # Suffix is in reverse order, so that
         # we can push and pop symbols efficiently
@@ -62,6 +66,10 @@ class Gen_State:
         # we've actually generated.  At the end, self.budget_used
         # + self.margin should equal self.budget
         self.budget_used = 0
+        #
+        # For the minimum length, we'll do some redundant calculation
+        # to keep it simple. budget_used will be handy here.
+        self.min_length = min_length
 
     def __str__(self) -> str:
         """Looks like foobar @ A(B|C)*Dx,8"""
@@ -154,7 +162,23 @@ class Gen_State:
         for the next step.  (Possibly just one.)
         """
         element = self.suffix[-1]  # FIFO access
-        return element.choices(self.margin + element.min_tokens())
+        choices = element.choices(self.margin + element.min_tokens())
+        # Filter out choices that are too short, unless all are too short
+        still_needed = self.min_length - self.budget_used
+        can_provide_later = sum(item.pot_tokens() for item in self.suffix[:-1])
+        need_immediately = still_needed - can_provide_later
+        if need_immediately > 0:
+            log.debug(f"We'll need at least {need_immediately} tokens from {element}")
+            long_enough = [ choice for choice in choices
+                         if choice.pot_tokens() >= need_immediately]
+            if len(long_enough) >0:
+                return long_enough
+        # We can return the original choices if they're all fine
+        # OR if none of them are long enough
+        return choices
+
+
+
 
     # External agent can pick one of the choices to replace
     # the current symbol.  Budget will be adjusted by minimum
@@ -171,12 +195,13 @@ class Gen_State:
 
 
 def random_sentence(g: Grammar, budget: int = 20,
+                    min_length: int = 10,
                     interpret_escapes: bool = False):
     """A generator of random sentences, without external control"""
     while g.start.min_tokens() > budget:
         log.info(f"Bumping budget by minimum requirement {g.start.min_tokens()}")
         budget += g.start.min_tokens()
-    state = Gen_State(g, budget)
+    state = Gen_State(g, budget, min_length=min_length)
     print(f"Initially {state}")
     while state.has_more():
         print(f"=> {state} margin/budget {state.margin}/{state.budget}")
