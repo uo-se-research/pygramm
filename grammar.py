@@ -1,6 +1,7 @@
 """Grammar structure
 M Young, June-August 2020
 """
+import re
 import logging
 
 from typing import List, Dict, Optional
@@ -341,6 +342,30 @@ class Grammar(object):
 
     def literal(self, text: str):
         """Unique node for this literal string"""
+
+        # regex filtering to parse stand-alone ASCII character appropriately
+        if re.match(r'^\\x([a-zA-Z]|\d){2}', text):  # any char written in hex form '\xXX'
+            text = chr(int(f'{text[-2]}{text[-1]}', 16))
+
+        if re.match(r'^\\\\$', text):  # backslash
+            text = chr(int('5C', 16))
+
+        if re.match(r'^\\(n|t|r|f|b|0)$', text):  # special control characters
+            if text[-1] == 'n':
+                text = chr(int('0A', 16))  # new line
+            elif text[-1] == 'r':
+                text = chr(int('0D', 16))  # Carriage return
+            elif text[-1] == 't':
+                text = chr(int('09', 16))  # Horizontal tab
+            elif text[-1] == 'f':
+                text = chr(int('0C', 16))  # Form feed
+            elif text[-1] == 'b':
+                text = chr(int('08', 16))  # backspace
+            elif text[-1] == '0':
+                text = chr(int('00', 16))  # Null byte
+            else:
+                raise RuntimeError("Broken regex!")
+
         if text not in self.literals:
             self.literals[text] = _Literal(text)
         return self.literals[text]
