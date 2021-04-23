@@ -8,7 +8,7 @@ from typing import List, Dict, Optional
 
 logging.basicConfig()
 log = logging.getLogger(__name__)
-log.setLevel(logging.DEBUG)
+# log.setLevel(logging.DEBUG)
 
 
 HUGE = 999_999_999   # Larger than any sentence we will generate
