@@ -337,13 +337,19 @@ class Grammar(object):
             self._productions[lhs_ident] = []
         self._productions[lhs_ident].append(rhs)
 
-    def dump(self):
-        """Dump the grammar to stdout with annotation"""
+    def dump(self) -> str:
+        """Dump the grammar to str with annotation"""
+        gram = ""
         for sym_name in self.symbols:
             sym = self.symbols[sym_name]
-            print(f"# {sym_name}, min length {self.symbols[sym_name].min_tokens()}")
-            print(f"{sym_name} ::= {sym.expansions}")
-            print()
+            gram += f"# {sym_name}, min length {self.symbols[sym_name].min_tokens()}\n"
+            gram += f"{sym_name} ::= {sym.expansions}\n"
+            gram += "\n"
+        return gram
+
+    def dump_stdout(self):
+        """Dump the grammar to stdout with annotation"""
+        print(self.dump())
 
     def merge_symbols(self, symbols: List[str]):
         """Each of the symbols will be mapped to a
