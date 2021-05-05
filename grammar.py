@@ -1,13 +1,14 @@
 """Grammar structure
 M Young, June-August 2020
 """
+import re
 import logging
 
 from typing import List, Dict, Optional
 
 logging.basicConfig()
 log = logging.getLogger(__name__)
-log.setLevel(logging.DEBUG)
+# log.setLevel(logging.DEBUG)
 
 
 HUGE = 999_999_999   # Larger than any sentence we will generate
@@ -294,13 +295,15 @@ class Grammar(object):
     Productions are indexed by non-terminal
     symbols.
     """
-    def __init__(self, max_lower_bound=1000):
+    def __init__(self, file_name: str, max_lower_bound=1000):
         """max_lower_bound is the largest *lower bound* we will
         place on the number of tokens in a generated sentence,
         i.e., when we calculate the number of tokens that we
         ensure each symbol can produce, we will assume that anything
         bigger than this can essentially grow to infinity.
         """
+
+        self.gram_name = file_name
         self.ready = False  # Pre-processing done
         self.start: Optional[_Symbol] = None   # Replace with start symbol
 
@@ -334,13 +337,19 @@ class Grammar(object):
             self._productions[lhs_ident] = []
         self._productions[lhs_ident].append(rhs)
 
-    def dump(self):
-        """Dump the grammar to stdout with annotation"""
+    def dump(self) -> str:
+        """Dump the grammar to str with annotation"""
+        gram = ""
         for sym_name in self.symbols:
             sym = self.symbols[sym_name]
-            print(f"# {sym_name}, min length {self.symbols[sym_name].min_tokens()}")
-            print(f"{sym_name} ::= {sym.expansions}")
-            print()
+            gram += f"# {sym_name}, min length {self.symbols[sym_name].min_tokens()}\n"
+            gram += f"{sym_name} ::= {sym.expansions}\n"
+            gram += "\n"
+        return gram
+
+    def dump_stdout(self):
+        """Dump the grammar to stdout with annotation"""
+        print(self.dump())
 
     def merge_symbols(self, symbols: List[str]):
         """Each of the symbols will be mapped to a
@@ -379,6 +388,30 @@ class Grammar(object):
 
     def literal(self, text: str):
         """Unique node for this literal string"""
+
+        # regex filtering to parse stand-alone ASCII character appropriately
+        if re.match(r'^\\x([a-zA-Z]|\d){2}', text):  # any char written in hex form '\xXX'
+            text = chr(int(f'{text[-2]}{text[-1]}', 16))
+
+        if re.match(r'^\\\\$', text):  # backslash
+            text = chr(int('5C', 16))
+
+        if re.match(r'^\\(n|t|r|f|b|0)$', text):  # special control characters
+            if text[-1] == 'n':
+                text = chr(int('0A', 16))  # new line
+            elif text[-1] == 'r':
+                text = chr(int('0D', 16))  # Carriage return
+            elif text[-1] == 't':
+                text = chr(int('09', 16))  # Horizontal tab
+            elif text[-1] == 'f':
+                text = chr(int('0C', 16))  # Form feed
+            elif text[-1] == 'b':
+                text = chr(int('08', 16))  # backspace
+            elif text[-1] == '0':
+                text = chr(int('00', 16))  # Null byte
+            else:
+                raise RuntimeError("Broken regex!")
+
         if text not in self.literals:
             self.literals[text] = _Literal(text)
         return self.literals[text]
@@ -397,7 +430,7 @@ class Grammar(object):
 
     def _calc_min_tokens(self):
         """Calculate the minimum length of each non-terminal,
-        updating the initial estimate of HUGE.  This 
+        updating the initial estimate of HUGE.  This
         """
         # We will iterate *down* to a fixed point from an
         # initial over-estimate of phrase length

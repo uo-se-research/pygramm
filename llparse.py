@@ -26,7 +26,7 @@ def parse(srcfile: TextIO) -> Grammar:
     Populates TERMINALS and NONTERMINALS
     """
     stream = TokenStream(srcfile)
-    gram = Grammar()
+    gram = Grammar(srcfile.name.rpartition('/')[-1])
     _grammar(stream, gram)
     gram.finalize()
     return gram
