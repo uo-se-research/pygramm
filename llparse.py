@@ -13,7 +13,7 @@ from pygramm.lex import TokenStream, TokenCat
 
 logging.basicConfig()
 log = logging.getLogger(__name__)
-log.setLevel(logging.INFO)
+# log.setLevel(logging.INFO)
 
 
 class InputError(Exception):
@@ -181,7 +181,7 @@ def _bnf_symbol(stream: TokenStream, gram: Grammar) -> RHSItem:
     token = stream.take()
     if token.kind == TokenCat.STRING or token.kind == TokenCat.CHAR:
         # log.debug("Forming literal")
-        return gram.literal(token.value[1:-1]) # Clips quotes
+        return gram.literal(token.value[1:-1])  # Clips quotes
     elif token.kind == TokenCat.IDENT:
         # log.debug("Forming symbol")
         return gram.symbol(token.value)

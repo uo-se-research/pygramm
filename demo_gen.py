@@ -1,20 +1,20 @@
 """Glue together parsing and random sentence generation"""
 
-from pygramm.grammar import Factor_Empty
+from pygramm.grammar import FactorEmpty
 from pygramm.llparse import *
 from pygramm.generator import *
 from pygramm.binary_choice import Binary_Choices
 
 # f = open("data/english.txt")
 # gram = parse(f)
-# xform = Factor_Empty(gram)
+# xform = FactorEmpty(gram)
 # xform.transform_all_rhs(gram)
 
 f = open("data/simple_seq.txt")
 gram = parse(f)
 log.debug(f"Grammar is {gram}")
 
-# xform = grammar.Factor_Empty(gram)
+# xform = grammar.FactorEmpty(gram)
 # xform.transform_all_rhs(gram)
 
 binarize = Binary_Choices(gram)
