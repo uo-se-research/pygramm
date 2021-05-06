@@ -151,7 +151,7 @@ class Gen_State:
         sym = self.suffix.pop()
         assert isinstance(sym, _Literal)
         self.text += sym.text
-        self.budget_used += 1
+        self.budget_used += sym.min_tokens()
 
     # Non-terminal symbols, including kleene star and choices,
     # provide an opportunity for external control of options.

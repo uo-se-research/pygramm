@@ -7,6 +7,7 @@ revised in discussion with Ziyad Alsaeed.
 import logging
 from typing import TextIO, List
 
+import pygramm.config as config
 from pygramm.grammar import Grammar, RHSItem, _Literal
 from pygramm.lex import TokenStream, TokenCat
 
@@ -21,10 +22,11 @@ class InputError(Exception):
     pass
 
 
-def parse(srcfile: TextIO) -> Grammar:
+def parse(srcfile: TextIO, len_based_size=False) -> Grammar:
     """Interface function to LL parser of BNF.
     Populates TERMINALS and NONTERMINALS
     """
+    config.LEN_BASED_SIZE = len_based_size  # update global accordingly to be used in grammar.
     stream = TokenStream(srcfile)
     gram = Grammar(srcfile.name.rpartition('/')[-1])
     _grammar(stream, gram)

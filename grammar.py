@@ -5,12 +5,12 @@ import re
 import logging
 from typing import List, Dict, Optional
 
+import pygramm.config as config
+
 logging.basicConfig()
 log = logging.getLogger(__name__)
 # log.setLevel(logging.DEBUG)
 
-
-HUGE = 999_999_999   # Larger than any sentence we will generate
 
 class TransformBase:
     """Abstract base class for transforms.
@@ -71,7 +71,7 @@ class RHSItem(object):
         """
         raise NotImplementedError("pot_tokens not implemented (guaranteed potential tokens")
 
-    def choices(self, budget: int = HUGE) -> List["RHSItem"]:
+    def choices(self, budget: int = config.HUGE) -> List["RHSItem"]:
         """List of choices for this item."""
         raise NotImplementedError("choices not implemented")
 
@@ -129,7 +129,7 @@ class _Symbol(RHSItem):
         return self._pot_tokens
 
     # Symbols and alternations provide a 'choices' operation
-    def choices(self, budget: int) -> List[RHSItem]:
+    def choices(self, budget: int = config.HUGE) -> List[RHSItem]:
         # Note 'expansions' is a single RHS item that
         # may be a '_Choice' or something else; so at this
         # point just one alternative
@@ -158,7 +158,7 @@ class _Literal(RHSItem):
         return f'_Literal("{self.text}")'
 
     def min_tokens(self) -> int:
-        return 1
+        return len(self.text) if config.LEN_BASED_SIZE else 1
 
     def pot_tokens(self) -> int:
         return 1
@@ -252,11 +252,11 @@ class _Kleene(RHSItem):
         then we can repeat it to ensure as many tokens as we need
         """
         if self.child.pot_tokens() > 0:
-            return HUGE
+            return config.HUGE
         return 0
 
     # A* is like choice between empty and AA*
-    def choices(self, budget: int) -> List["RHSItem"]:
+    def choices(self, budget: int = config.HUGE) -> List["RHSItem"]:
         if budget >= self.child.min_tokens():
             return [self._recursive_case, self._base_case]
         else:
@@ -298,9 +298,8 @@ class _Choice(RHSItem):
     def pot_tokens(self) -> int:
         return max(item.pot_tokens() for item in self.items)
 
-    def choices(self, budget: int) -> List["RHSItem"]:
-        return [item for item in self.items    \
-                if item.min_tokens() <= budget]
+    def choices(self, budget: int = config.HUGE) -> List["RHSItem"]:
+        return [item for item in self.items if item.min_tokens() <= budget]
 
     def xform(self, t: TransformBase) -> RHSItem:
         """Recursively transforms children before self"""
@@ -463,7 +462,7 @@ class Grammar(object):
         # We will iterate *down* to a fixed point from an
         # initial over-estimate of phrase length
         for name in self.symbols:
-            self.symbols[name].set_min_length(HUGE)
+            self.symbols[name].set_min_length(config.HUGE)
         changed = True
         # Iterate to fixed point
         while changed:
@@ -480,7 +479,7 @@ class Grammar(object):
                     log.debug(f"New minimum length estimate {new_estimate} for {sym}")
         # Sanity check:  Did we find a length for each symbol?
         for name in self.symbols:
-            assert self.symbols[name].min_tokens() < HUGE, \
+            assert self.symbols[name].min_tokens() < config.HUGE, \
                     f"Failed to find min length for {name}"
             # Should never fail, but ...
 
@@ -507,14 +506,14 @@ class Grammar(object):
                 prior_estimate = sym.pot_tokens()
                 new_estimate = sym.expansions.pot_tokens()
                 if new_estimate > self.max_lower_bound:
-                    new_estimate = HUGE
+                    new_estimate = config.HUGE
                 if new_estimate > prior_estimate:
                     changed = True
                     sym._pot_tokens = new_estimate
 
         # Sanity check:  Did we find a length for each symbol?
         for name in self.symbols:
-            assert self.symbols[name].min_tokens() < HUGE, \
+            assert self.symbols[name].min_tokens() < config.HUGE, \
                 f"Failed to find min length for {name}"
             # Should never fail, but ...
 
