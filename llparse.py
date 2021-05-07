@@ -7,13 +7,14 @@ revised in discussion with Ziyad Alsaeed.
 import logging
 from typing import TextIO, List
 
+import pygramm.config as config
 from pygramm.grammar import Grammar, RHSItem, _Literal
 from pygramm.lex import TokenStream, TokenCat
 
 
 logging.basicConfig()
 log = logging.getLogger(__name__)
-log.setLevel(logging.INFO)
+# log.setLevel(logging.INFO)
 
 
 class InputError(Exception):
@@ -21,10 +22,11 @@ class InputError(Exception):
     pass
 
 
-def parse(srcfile: TextIO) -> Grammar:
+def parse(srcfile: TextIO, len_based_size=False) -> Grammar:
     """Interface function to LL parser of BNF.
     Populates TERMINALS and NONTERMINALS
     """
+    config.LEN_BASED_SIZE = len_based_size  # update global accordingly to be used in grammar.
     stream = TokenStream(srcfile)
     gram = Grammar(srcfile.name.rpartition('/')[-1])
     _grammar(stream, gram)
@@ -181,7 +183,7 @@ def _bnf_symbol(stream: TokenStream, gram: Grammar) -> RHSItem:
     token = stream.take()
     if token.kind == TokenCat.STRING or token.kind == TokenCat.CHAR:
         # log.debug("Forming literal")
-        return gram.literal(token.value[1:-1]) # Clips quotes
+        return gram.literal(token.value[1:-1])  # Clips quotes
     elif token.kind == TokenCat.IDENT:
         # log.debug("Forming symbol")
         return gram.symbol(token.value)

@@ -6,7 +6,7 @@ import grammar
 from grammar import _Choice, RHSItem
 from typing import List
 
-class Binary_Choices(grammar.Transform_Base):
+class Binary_Choices(grammar.TransformBase):
     """After transformation, each _Choice node will
     have two alternatives.
     """

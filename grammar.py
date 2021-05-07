@@ -3,18 +3,16 @@ M Young, June-August 2020
 """
 import re
 import logging
-
 from typing import List, Dict, Optional
+
+import pygramm.config as config
 
 logging.basicConfig()
 log = logging.getLogger(__name__)
 # log.setLevel(logging.DEBUG)
 
 
-HUGE = 999_999_999   # Larger than any sentence we will generate
-
-
-class Transform_Base:
+class TransformBase:
     """Abstract base class for transforms.
     RHSItem objects are responsible for walking
     the tree and calling 'apply' at each node.
@@ -73,7 +71,7 @@ class RHSItem(object):
         """
         raise NotImplementedError("pot_tokens not implemented (guaranteed potential tokens")
 
-    def choices(self, budget: int = HUGE) -> List["RHSItem"]:
+    def choices(self, budget: int = config.HUGE) -> List["RHSItem"]:
         """List of choices for this item."""
         raise NotImplementedError("choices not implemented")
 
@@ -94,7 +92,7 @@ class RHSItem(object):
     def __str__(self) -> str:
         raise NotImplementedError(f"Missing __str__ method in {self.__class__}!")
 
-    def xform(self, t: Transform_Base):
+    def xform(self, t: TransformBase):
         """Apply the transformation x to node.
         Should walk (postorder) and then apply.
         """
@@ -131,17 +129,21 @@ class _Symbol(RHSItem):
         return self._pot_tokens
 
     # Symbols and alternations provide a 'choices' operation
-    def choices(self, budget: int) -> List[RHSItem]:
+    def choices(self, budget: int = config.HUGE) -> List[RHSItem]:
         # Note 'expansions' is a single RHS item that
         # may be a '_Choice' or something else; so at this
         # point just one alternative
         return [self.expansions]
 
-    def xform(self, t: Transform_Base) -> RHSItem:
+    def xform(self, t: TransformBase) -> RHSItem:
         """Apply the transformation x to node.
         Should walk (postorder) and then apply.
         """
         return t.apply(self)
+
+    def expand(self, choice: int = 0) -> List["RHSItem"]:
+        """Return the chosen expansion"""
+        raise NotImplementedError("expand not implemented")
 
 
 class _Literal(RHSItem):
@@ -156,7 +158,7 @@ class _Literal(RHSItem):
         return f'_Literal("{self.text}")'
 
     def min_tokens(self) -> int:
-        return 1
+        return len(self.text) if config.LEN_BASED_SIZE else 1
 
     def pot_tokens(self) -> int:
         return 1
@@ -165,11 +167,19 @@ class _Literal(RHSItem):
         """False for everything except literals"""
         return True
 
-    def xform(self, t: Transform_Base) -> RHSItem:
+    def xform(self, t: TransformBase) -> RHSItem:
         """Apply the transformation x to node.
         Should walk (postorder) and then apply.
         """
         return t.apply(self)
+
+    def expand(self, choice: int = 0) -> List["RHSItem"]:
+        """Return the chosen expansion"""
+        raise NotImplementedError("expand not implemented")
+
+    def choices(self, budget: int = config.HUGE) -> List["RHSItem"]:
+        """List of choices for this item."""
+        raise NotImplementedError("choices not implemented")
 
 
 class _Seq(RHSItem):
@@ -198,7 +208,7 @@ class _Seq(RHSItem):
             assert item.pot_tokens() is not None, "Oops, here's the stinker"
         return sum(item.pot_tokens() for item in self.items)
 
-    def xform(self, t: Transform_Base) -> RHSItem:
+    def xform(self, t: TransformBase) -> RHSItem:
         """Recursively transforms children before self"""
         for i in range(len(self.items)):
             item = self.items[i]
@@ -206,6 +216,14 @@ class _Seq(RHSItem):
             if item is not transformed:
                 self.items[i] = transformed
         return t.apply(self)
+
+    def expand(self, choice: int = 0) -> List["RHSItem"]:
+        """Return the chosen expansion"""
+        raise NotImplementedError("expand not implemented")
+
+    def choices(self, budget: int = config.HUGE) -> List["RHSItem"]:
+        """List of choices for this item."""
+        raise NotImplementedError("choices not implemented")
 
 
 class _Kleene(RHSItem):
@@ -234,17 +252,17 @@ class _Kleene(RHSItem):
         then we can repeat it to ensure as many tokens as we need
         """
         if self.child.pot_tokens() > 0:
-            return HUGE
+            return config.HUGE
         return 0
 
     # A* is like choice between empty and AA*
-    def choices(self, budget: int) -> List["RHSItem"]:
+    def choices(self, budget: int = config.HUGE) -> List["RHSItem"]:
         if budget >= self.child.min_tokens():
             return [self._recursive_case, self._base_case]
         else:
             return [self._base_case]
 
-    def xform(self, t: Transform_Base) -> RHSItem:
+    def xform(self, t: TransformBase) -> RHSItem:
         """Apply the transformation x to node.
         Should walk (postorder) and then apply.
         """
@@ -252,6 +270,10 @@ class _Kleene(RHSItem):
         if self.child is not transformed:
             self.child = transformed
         return t.apply(self)
+
+    def expand(self, choice: int = 0) -> List["RHSItem"]:
+        """Return the chosen expansion"""
+        raise NotImplementedError("expand not implemented")
 
 
 class _Choice(RHSItem):
@@ -276,11 +298,10 @@ class _Choice(RHSItem):
     def pot_tokens(self) -> int:
         return max(item.pot_tokens() for item in self.items)
 
-    def choices(self, budget: int) -> List["RHSItem"]:
-        return [item for item in self.items    \
-                if item.min_tokens() <= budget]
+    def choices(self, budget: int = config.HUGE) -> List["RHSItem"]:
+        return [item for item in self.items if item.min_tokens() <= budget]
 
-    def xform(self, t: Transform_Base) -> RHSItem:
+    def xform(self, t: TransformBase) -> RHSItem:
         """Recursively transforms children before self"""
         for i in range(len(self.items)):
             item = self.items[i]
@@ -288,6 +309,10 @@ class _Choice(RHSItem):
             if item is not transformed:
                 self.items[i] = transformed
         return t.apply(self)
+
+    def expand(self, choice: int = 0) -> List["RHSItem"]:
+        """Return the chosen expansion"""
+        raise NotImplementedError("expand not implemented")
 
 
 class Grammar(object):
@@ -328,12 +353,11 @@ class Grammar(object):
         self._productions: Dict[str, list] = dict()
         self.max_lower_bound = max_lower_bound
 
-
     def add_cfg_prod(self, lhs: _Symbol, rhs: list):
         if self.start is None:
             self.start = lhs
         lhs_ident = lhs.name
-        if not lhs_ident in self._productions:
+        if lhs_ident not in self._productions:
             self._productions[lhs_ident] = []
         self._productions[lhs_ident].append(rhs)
 
@@ -396,7 +420,7 @@ class Grammar(object):
         if re.match(r'^\\\\$', text):  # backslash
             text = chr(int('5C', 16))
 
-        if re.match(r'^\\(n|t|r|f|b|0)$', text):  # special control characters
+        if re.match(r'^\\[ntrfb0]$', text):  # special control characters
             if text[-1] == 'n':
                 text = chr(int('0A', 16))  # new line
             elif text[-1] == 'r':
@@ -416,13 +440,16 @@ class Grammar(object):
             self.literals[text] = _Literal(text)
         return self.literals[text]
 
-    def seq(self):
+    @staticmethod
+    def seq():
         return _Seq()
 
-    def kleene(self, child: RHSItem):
+    @staticmethod
+    def kleene(child: RHSItem):
         return _Kleene(child)
 
-    def choice(self):
+    @staticmethod
+    def choice():
         return _Choice()
 
     # For sentence generation, we need to know the minimum length
@@ -435,7 +462,7 @@ class Grammar(object):
         # We will iterate *down* to a fixed point from an
         # initial over-estimate of phrase length
         for name in self.symbols:
-            self.symbols[name].set_min_length(HUGE)
+            self.symbols[name].set_min_length(config.HUGE)
         changed = True
         # Iterate to fixed point
         while changed:
@@ -452,7 +479,7 @@ class Grammar(object):
                     log.debug(f"New minimum length estimate {new_estimate} for {sym}")
         # Sanity check:  Did we find a length for each symbol?
         for name in self.symbols:
-            assert self.symbols[name].min_tokens() < HUGE, \
+            assert self.symbols[name].min_tokens() < config.HUGE, \
                     f"Failed to find min length for {name}"
             # Should never fail, but ...
 
@@ -479,14 +506,14 @@ class Grammar(object):
                 prior_estimate = sym.pot_tokens()
                 new_estimate = sym.expansions.pot_tokens()
                 if new_estimate > self.max_lower_bound:
-                    new_estimate = HUGE
+                    new_estimate = config.HUGE
                 if new_estimate > prior_estimate:
                     changed = True
                     sym._pot_tokens = new_estimate
 
         # Sanity check:  Did we find a length for each symbol?
         for name in self.symbols:
-            assert self.symbols[name].min_tokens() < HUGE, \
+            assert self.symbols[name].min_tokens() < config.HUGE, \
                 f"Failed to find min length for {name}"
             # Should never fail, but ...
 
@@ -520,7 +547,7 @@ class Grammar(object):
         self._calc_pot_tokens()
 
 
-class Factor_Empty(Transform_Base):
+class FactorEmpty(TransformBase):
     """Add a new symbol EMPTY that is used in place
     of any empty sequence on the right-hand-side of a
     production.

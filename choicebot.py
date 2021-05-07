@@ -6,7 +6,7 @@ import argparse
 
 from pygramm.llparse import *
 from pygramm.generator import Gen_State
-from pygramm.grammar import Grammar, Factor_Empty
+from pygramm.grammar import Grammar, FactorEmpty
 
 
 def cli() -> object:
@@ -67,7 +67,7 @@ def generate_sentence(g: Grammar, budget: int,
 def main():
     args = cli()
     gram = parse(args.grammar)
-    transform = Factor_Empty(gram)
+    transform = FactorEmpty(gram)
     transform.transform_all_rhs(gram)
     budget = args.budget
     generate_sentence(gram, budget, args.escapes)
