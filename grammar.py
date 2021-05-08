@@ -149,13 +149,15 @@ class _Symbol(RHSItem):
 class _Literal(RHSItem):
 
     def __init__(self, text: str):
-        self.text = text
+        self.text = text.encode().decode('unicode-escape')
 
     def __str__(self) -> str:
-        return f'"{self.text}"'
+        escaped = self.text.encode("unicode_escape").decode('ascii')
+        return f'"{escaped}"'
 
     def __repr__(self) -> str:
-        return f'_Literal("{self.text}")'
+        escaped = self.text.encode("unicode_escape").decode('ascii')
+        return f'_Literal("{escaped}")'
 
     def min_tokens(self) -> int:
         return len(self.text) if config.LEN_BASED_SIZE else 1
@@ -367,7 +369,7 @@ class Grammar(object):
         for sym_name in self.symbols:
             sym = self.symbols[sym_name]
             gram += f"# {sym_name}, min length {self.symbols[sym_name].min_tokens()}\n"
-            gram += f"{sym_name} ::= {sym.expansions}\n"
+            gram += f"{sym_name} ::= {sym.expansions} ;\n"
             gram += "\n"
         return gram
 
@@ -570,3 +572,5 @@ class FactorEmpty(TransformBase):
         the empty sequence.
         """
         self.sym.expansions = _Seq()
+        g._calc_min_tokens()
+        g._calc_pot_tokens()

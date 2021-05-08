@@ -54,3 +54,5 @@ class UnitProductions(grammar.TransformBase):
         for name in symbols:
             if g.symbols[name] in self.unit_symbols:
                 del g.symbols[name]
+        g._calc_min_tokens()
+        g._calc_pot_tokens()

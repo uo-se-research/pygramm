@@ -2,7 +2,9 @@
 
 from pygramm.llparse import *
 from pygramm.generator import *
+from pygramm.char_classes import  CharClasses
 from pygramm.unit_productions import UnitProductions
+from pygramm.grammar import FactorEmpty
 
 import logging
 logging.basicConfig()
@@ -13,17 +15,17 @@ log.setLevel(logging.INFO)
 f = open("data/gram-calc-multi-line-2020-06-04_22-59.gram.txt")
 gram = parse(f)
 gram.finalize()
+
 xform = UnitProductions(gram)
 xform.transform_all_rhs(gram)
 
+xform = CharClasses(gram)
+xform.transform_all_rhs(gram)
+
+xform = FactorEmpty(gram)
+xform.transform_all_rhs(gram)
 
 log.debug(f"Grammar is {gram}")
-
-# xform = grammar.FactorEmpty(gram)
-# xform.transform_all_rhs(gram)
-
-# binarize = Binary_Choices(gram)
-# binarize.transform_all_rhs(gram)
 
 print("*** Grammar (repr): ***")
 for name in gram.symbols:

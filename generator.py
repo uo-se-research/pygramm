@@ -204,7 +204,7 @@ def random_sentence(g: Grammar, budget: int = 20,
     state = Gen_State(g, budget, min_length=min_length)
     print(f"Initially {state}")
     while state.has_more():
-        print(f"=> {state} margin/budget {state.margin}/{state.budget}")
+        log.debug(f"=> {state} margin/budget {state.margin}/{state.budget}")
         if state.is_terminal():
             state.shift()
         else:
