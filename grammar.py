@@ -9,7 +9,7 @@ import pygramm.config as config
 
 logging.basicConfig()
 log = logging.getLogger(__name__)
-# log.setLevel(logging.DEBUG)
+log.setLevel(logging.INFO)
 
 
 class TransformBase:
@@ -149,7 +149,11 @@ class _Symbol(RHSItem):
 class _Literal(RHSItem):
 
     def __init__(self, text: str):
-        self.text = text.encode().decode('unicode-escape')
+        # self.text = text.encode().decode('unicode-escape')
+        # Any conversion from escaped to unicode should take
+        # place BEFORE we get here
+        self.text = text
+        log.debug(f"Creating new literal {self} length {len(self.text)}")
 
     def __str__(self) -> str:
         escaped = self.text.encode("unicode_escape").decode('ascii')
