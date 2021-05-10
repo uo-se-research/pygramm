@@ -57,7 +57,8 @@ class TokenCat(Enum):
     IDENT = r"<?[a-zA-Z_][a-zA-Z_0-9]*>?"
     LBRACE = r"\{"  # Not currently used
     RBRACE = r"\}"
-    STRING = r'["](?:[^"]|(?:[\\]["]))*["]'
+    # STRING = r'["](?:[^"]|(?:[\\]["]))*["]'
+    STRING = r'["](?:[^\\"]|(?:[\\].))*["]'
     CHAR = r"'[^']+'"
     TERMINATOR = r';'
     # EBNF groups: disjunction, repetition
