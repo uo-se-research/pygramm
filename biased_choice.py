@@ -20,8 +20,8 @@ DEFAULT_WEIGHT = 0.5
 # current value toward 1.0 (if reward) or 0.0 (if penalty).  Small values will learn
 # slowly, large values will oscillate.  If rewards are rare, we might want a penalty
 # delta that is smaller than the reward delta.
-REWARD_DELTA = 0.50
-PENALTY_DELTA = 0.01
+REWARD_DELTA = 0.5
+PENALTY_DELTA = 0.05
 #
 # If we have a bigram xa, and we also have a weight for a regardless of
 # prior, how much of the weight value should depend on the bigram weight?
