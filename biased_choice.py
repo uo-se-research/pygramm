@@ -56,15 +56,16 @@ class _BiasCore:
             return None
         sum_weight = sum(self.weight(item, prior) for item in choices)
         r = random.random()  # In open interval 0.0 .. 1.0
-        log.debug(f"Rolled {r}")
+        log.debug(f"Rolled {r:1.3}")
         bound = 0.0  # Sum of adjusted weights so far
-        for choice in choices:
-            weight = self.weight(choice, prior)
-            bound += weight / sum_weight
-            log.debug(f"{choice} weight {weight}, new bound {bound}")
+        for item in choices:
+            weight = self.weight(item, prior)
+            portion = weight / sum_weight
+            bound += portion
+            log.debug(f"{item} weight {weight:0.3}({portion:0.3}), new bound {bound:0.3}")
             if r <= bound:
-                log.debug(f"Chose {choice}")
-                return choice
+                log.debug(f"Chose {item}")
+                return item
         # Infinitessimal possibility of roundoff error
         log.debug("None of the above; but return {choices[-1]}")
         return choices[-1]
@@ -78,8 +79,10 @@ class _BiasCore:
         if bigram not in self.bigram_weights:
             # Haven't seen it in this context; depend on its
             # overall weight from all contexts in which we've seen it.
+            log.debug(f"First sighting of {bigram}")
             return item_weight
         bi_weight = self.bigram_weights[bigram]
+        log.debug(f"Combining weights {item_weight} with bigram weight {bi_weight}")
         return self.bigram_priority * bi_weight + (1 - self.bigram_priority) * item_weight
 
 
@@ -140,7 +143,11 @@ class Bias:
 
     def choose(self, choices: List[object]):
         """Make a biased choice among choices."""
-        choice = self.core.choose(choices)
+        if len(self.history) > 0:
+            prior = self.history[-1]
+        else:
+            prior = None
+        choice = self.core.choose(choices, prior)
         self.history.append(choice)
         return choice
 
@@ -165,14 +172,15 @@ def main():
     We should see random words tend toward later letters after
     a few hundred iterations.
     """
-    letters = list("abcdefghijklmnopqrstuvwxyz")
+    # letters = list("abcdefghijklmnopqrstuvwxyz")
+    letters = list("akemix")
     root_chooser = Bias()
     for epoch in range(100):
         epoch_score = 0
-        for trial in range(1000):
+        for trial in range(100):
             chooser = root_chooser.fork()
             word_letters = []
-            if epoch > 500 and trial == 999:
+            if epoch > 999 and trial == 999:  # Enable by putting epoch bound lower
                 log.setLevel(logging.DEBUG)
                 log.debug("*** EPOCH ***")
             for pos in range(5):   ### Length of word, critical parameter
