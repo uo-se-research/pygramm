@@ -172,8 +172,8 @@ def main():
     We should see random words tend toward later letters after
     a few hundred iterations.
     """
-    # letters = list("abcdefghijklmnopqrstuvwxyz")
-    letters = list("akemix")
+    letters = list("abcdefghijklmnopqrstuvwxyz")
+    # letters = list("akemix")   # Simpler problem for debugging
     root_chooser = Bias()
     for epoch in range(100):
         epoch_score = 0
