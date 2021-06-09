@@ -5,6 +5,11 @@ and biases future choices toward those biases.
 import random
 from typing import List
 
+import logging
+logging.basicConfig()
+log = logging.getLogger(__name__)
+log.setLevel(logging.INFO)
+
 # Tuning constants
 #
 # The weight that all items start at.  Must be in open interval
@@ -15,14 +20,14 @@ DEFAULT_WEIGHT = 0.5
 # current value toward 1.0 (if reward) or 0.0 (if penalty).  Small values will learn
 # slowly, large values will oscillate.  If rewards are rare, we might want a penalty
 # delta that is smaller than the reward delta.
-REWARD_DELTA = 0.05
-PENALTY_DELTA = 0.05
+REWARD_DELTA = 0.50
+PENALTY_DELTA = 0.01
 #
 # If we have a bigram xa, and we also have a weight for a regardless of
 # prior, how much of the weight value should depend on the bigram weight?
 # Since we see individual items more often than we see bigrams, this should
 # probably not be 1.0.
-BIGRAM_PRIORITY = 0.8
+BIGRAM_PRIORITY = 0.99
 
 class _BiasCore:
     """Core shared state of the biased chooser.  When a chooser is
@@ -51,12 +56,17 @@ class _BiasCore:
             return None
         sum_weight = sum(self.weight(item, prior) for item in choices)
         r = random.random()  # In open interval 0.0 .. 1.0
+        log.debug(f"Rolled {r}")
         bound = 0.0  # Sum of adjusted weights so far
         for choice in choices:
-            bound += self.weight(choice, prior) / sum_weight
+            weight = self.weight(choice, prior)
+            bound += weight / sum_weight
+            log.debug(f"{choice} weight {weight}, new bound {bound}")
             if r <= bound:
+                log.debug(f"Chose {choice}")
                 return choice
         # Infinitessimal possibility of roundoff error
+        log.debug("None of the above; but return {choices[-1]}")
         return choices[-1]
 
     def weight(self, item: object, prior=None) -> float:
@@ -68,7 +78,7 @@ class _BiasCore:
         if bigram not in self.bigram_weights:
             # Haven't seen it in this context; depend on its
             # overall weight from all contexts in which we've seen it.
-            return self.weights[item]
+            return item_weight
         bi_weight = self.bigram_weights[bigram]
         return self.bigram_priority * bi_weight + (1 - self.bigram_priority) * item_weight
 
@@ -158,25 +168,49 @@ def main():
     letters = list("abcdefghijklmnopqrstuvwxyz")
     root_chooser = Bias()
     for epoch in range(100):
-        for word in range(1000):
+        epoch_score = 0
+        for trial in range(1000):
             chooser = root_chooser.fork()
             word_letters = []
-            for pos in range(3):   ### Length of word, critical parameter
+            if epoch > 500 and trial == 999:
+                log.setLevel(logging.DEBUG)
+                log.debug("*** EPOCH ***")
+            for pos in range(5):   ### Length of word, critical parameter
                 xl = chooser.choose(letters)
                 word_letters.append(xl)
+            log.setLevel(logging.INFO)
             word = "".join(word_letters)
-            ### Here the reward depends only on the first character,
-            ### but we reward bigrams rather than individual characters. 
-            if word > "p":
-                for letter in word_letters:
-                    chooser.reward()
-            elif word < "k":
-                for letter in word_letters:
-                    chooser.penalize()
-        print(word)
-    print(chooser.core.weights)
-    bigram_weights = list(chooser.core.bigram_weights.items())
+            if can_pronounce(word):
+                epoch_score += 1
+                chooser.reward()
+            else:
+                chooser.penalize()
+        print(f"{word}  / This epoch score {epoch_score}")
+    print(root_chooser.core.weights)
+    bigram_weights = list(root_chooser.core.bigram_weights.items())
     print(sorted(bigram_weights))
+
+def can_pronounce(word: str) -> bool:
+    """Simple relation to learn:  We'll say a word can be
+    pronounced if it alternates consonants with vowels.
+    """
+    consonants = set("bcdfghjklmnpqrstvwxyz")
+    vowels = set("aeiouy")
+    # State machine:
+    transitions = [
+        [1, 2], # 0/consonant -> state 1, 0/vowel -> state 2
+        [-1, 2], # 1/consonant -> FAIL, 1/vowel -> state 2
+        [1, -1]   # 2/consonant -> 1, 2/vowel -> FAIL
+    ]
+    state = 0
+    for letter in word:
+        if letter in consonants:
+            state = transitions[state][0]
+        elif letter in vowels:
+            state = transitions[state][1]
+        if state < 0:
+            return False
+    return True
 
 if __name__ == "__main__":
     main()
