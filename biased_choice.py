@@ -50,6 +50,21 @@ class _BiasCore:
         self.weights = {}
         self.bigram_weights = {}
 
+    def __str__(self) -> str:
+        """String representation is likely to be large, so we will
+        format it into several lines.
+        """
+        lines = []
+        lines.append("Individual choice weights:")
+        for choice in sorted(self.weights.keys(), key=str):
+            lines.append(f"   {choice}:\t{self.weights[choice]}")
+        lines.append("")
+        lines.append("Bigram weights:")
+        for choice in sorted(self.bigram_weights.keys(), key=str):
+            prior, item = choice
+            lines.append(f"   {prior} => {item}:\t{self.bigram_weights[choice]}")
+        return "\n".join(lines)
+
     def choose(self, choices: List[object], prior=None):
         """Make a biased choice among choices."""
         if not choices:
@@ -123,8 +138,6 @@ class Bias:
     """Provides a 'choice' method like random.choice but weighted.
     Choices must be hashable.
     """
-
-
     def __init__(self,
                 default_weight = DEFAULT_WEIGHT,
                 reward_delta = REWARD_DELTA,
@@ -165,6 +178,10 @@ class Bias:
             self.core.penalize(item, prior=prior)
             prior = item
 
+    def __str__(self) -> str:
+        return str(self.core)
+
+
 
 
 def main():
@@ -194,9 +211,11 @@ def main():
             else:
                 chooser.penalize()
         print(f"{word}  / This epoch score {epoch_score}")
-    print(root_chooser.core.weights)
-    bigram_weights = list(root_chooser.core.bigram_weights.items())
-    print(sorted(bigram_weights))
+    # print(root_chooser.core.weights)
+    # bigram_weights = list(root_chooser.core.bigram_weights.items())
+    # print(sorted(bigram_weights))
+    print("Weights at conclusion:")
+    print(chooser.core)
 
 def can_pronounce(word: str) -> bool:
     """Simple relation to learn:  We'll say a word can be
