@@ -47,6 +47,25 @@ class TransformBase:
                 sym.expansions = transformed
         self.teardown(g)
 
+LB = "{"  # For LaTeXifying in f-strings
+RB = "}"
+def ltxesc(s: str) -> str:
+    """Escape or otherwise transform characters that are special to LaTeX"""
+    escapes = { # "<": "\\langle{}", ">": "\\rangle{}",
+                "\\": "\\textbackslash ",  # MUST be first
+                # The first six can simply be escaped ...
+                "&": "\\&", "%": "\\%", "$": "\\$",
+                "{": "\\{", "}": "\\}",
+                "_": "\\_", "#": "\\#",
+                # The remainder have special commands
+                "<": "$<$", ">": "$>$",
+                "|": "\\(\\mid{}\\)",
+                "^": "\\textasciicircum",
+                }
+    for special in escapes:
+        if special in s:
+            s = s.replace(special, escapes[special])
+    return s
 
 class RHSItem(object):
     """Abstract base class for components of the
@@ -92,6 +111,10 @@ class RHSItem(object):
     def __str__(self) -> str:
         raise NotImplementedError(f"Missing __str__ method in {self.__class__}!")
 
+    # Alternative to rep and str, emit for LaTeX formatting
+    def latex(self) -> str:
+        raise NotImplementedError(f"Missing latex method in {self.__class__}!")
+
     def xform(self, t: TransformBase):
         """Apply the transformation x to node.
         Should walk (postorder) and then apply.
@@ -108,6 +131,9 @@ class _Symbol(RHSItem):
 
     def __str__(self) -> str:
         return self.name
+
+    def latex(self) -> str:
+        return f"\\nonterminal{LB}{ltxesc(self.name)}{RB}"
 
     def __repr__(self) -> str:
         return f"_Symbol({repr(self.name)})"
@@ -159,6 +185,9 @@ class _Literal(RHSItem):
         escaped = self.text.encode("unicode_escape").decode('ascii')
         return f'"{escaped}"'
 
+    def latex(self) -> str:
+        return f"\\literal{LB}{ltxesc(str(self))}{RB}"  # We use escaping rather than \verb||
+
     def __repr__(self) -> str:
         escaped = self.text.encode("unicode_escape").decode('ascii')
         return f'_Literal("{escaped}")'
@@ -200,6 +229,12 @@ class _Seq(RHSItem):
         if len(self.items) == 0:
             return "/* empty */"
         return " ".join(str(item) for item in self.items)
+
+    def latex(self) -> str:
+        if len(self.items) == 0:
+            return "\\(\\lambda\\)"
+        else:
+            return " ".join(item.latex() for item in self.items)
 
     def __repr__(self) -> str:
         items = ", ".join(repr(i) for i in self.items)
@@ -245,6 +280,9 @@ class _Kleene(RHSItem):
 
     def __str__(self) -> str:
         return f"({str(self.child)})*"
+
+    def latex(self) -> str:
+        return f"\\Kleene{LB}{str(self.child)}{RB}"
 
     def __repr__(self) -> str:
         return f"_Kleene({repr(self.child)})"
@@ -292,6 +330,10 @@ class _Choice(RHSItem):
 
     def __str__(self) -> str:
         disjunct_str = " | ".join(str(item) for item in self.items)
+        return f"({disjunct_str})"
+
+    def latex(self) -> str:
+        disjunct_str = " \\OR ".join(item.latex() for item in self.items)
         return f"({disjunct_str})"
 
     def __repr__(self) -> str:
@@ -381,6 +423,15 @@ class Grammar(object):
         """Dump the grammar to stdout with annotation"""
         print(self.dump())
 
+    def latex(self):
+        gram_l = ["\\begin{grammar}"]
+        for sym_name in self.symbols:
+            sym = self.symbols[sym_name]
+            gram_l.append(f"{sym.latex()} " +
+                          f"&\\raggedright {sym.expansions.latex()} ;\\tabularnewline")
+        gram_l.append("\\end{grammar}")
+        return "\n".join(gram_l)
+
     def merge_symbols(self, symbols: List[str]):
         """Each of the symbols will be mapped to a
         an already chosen leader or to a newly elected
@@ -418,35 +469,7 @@ class Grammar(object):
 
     def literal(self, text: str):
         """Unique node for this literal string"""
-
         text = text.encode().decode('unicode-escape')
-        # NOTE: The following code has been superseded by the encode/decode
-        # step above, but I will leave it here for a little bit in case that
-        # turns out to be a mistake.
-        #
-        # regex filtering to parse stand-alone ASCII character appropriately
-        # if re.match(r'^\\x([a-zA-Z]|\d){2}', text):  # any char written in hex form '\xXX'
-        #     text = chr(int(f'{text[-2]}{text[-1]}', 16))
-        #
-        # if re.match(r'^\\\\$', text):  # backslash
-        #     text = chr(int('5C', 16))
-        #
-        # if re.match(r'^\\[ntrfb0]$', text):  # special control characters
-        #     if text[-1] == 'n':
-        #         text = chr(int('0A', 16))  # new line
-        #     elif text[-1] == 'r':
-        #         text = chr(int('0D', 16))  # Carriage return
-        #     elif text[-1] == 't':
-        #         text = chr(int('09', 16))  # Horizontal tab
-        #     elif text[-1] == 'f':
-        #         text = chr(int('0C', 16))  # Form feed
-        #     elif text[-1] == 'b':
-        #         text = chr(int('08', 16))  # backspace
-        #     elif text[-1] == '0':
-        #         text = chr(int('00', 16))  # Null byte
-        #     else:
-        #         raise RuntimeError("Broken regex!")
-
         if text not in self.literals:
             self.literals[text] = _Literal(text)
         return self.literals[text]
