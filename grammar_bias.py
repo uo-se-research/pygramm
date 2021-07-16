@@ -35,7 +35,7 @@ def dump_bias(bias: Bias, gram: Grammar) -> str:
             if choice not in choices_in_context:
                 continue
             for (context, weight) in choices_in_context[choice]:
-                lines.append(f" -- {weight} after {context}")
+                lines.append(f" -- {weight:.3f} after {context}")
     return "\n".join(lines)
 
 
