@@ -20,6 +20,7 @@ def dump_bias(bias: Bias, gram: Grammar) -> str:
     # with a top-level choice.  (Note it may be desirable to normalize
     # grammars that have choices nested within other RHS elements.)
     for (sym_name, symbol) in gram.symbols.items():
+        lines.append("")
         expansions = symbol.expansions
         if not isinstance(expansions, _Choice):
             lines.append(f"{sym_name} ::= {symbol.expansions}")
