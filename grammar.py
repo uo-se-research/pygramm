@@ -4,7 +4,7 @@ M Young, June-August 2020
 import re
 import logging
 import sys
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Set
 
 import pygramm.config as config
 
@@ -586,6 +586,63 @@ class Grammar(object):
         # each non-terminal (and so indirectly by each production)
         self._calc_min_tokens()
         self._calc_pot_tokens()
+
+class GrammarDiagnostics:
+    """Helper class for diagnosing and improving grammars,
+    e.g., by reporting and/or removing unused symbols.
+    """
+    def __init__(self, gram: Grammar):
+        self.gram = gram
+
+    # Notes on walking the grammar:  We could implement an __iter__ method
+    # in each RHS item, but if we did, should the _Symbol class iterate
+    # its expansions or not?  Should we build the cycle detection into the
+    # walk or not?  Since it is not currently obvious which is the "one right way"
+    # to do it, we'll put the walk we need for reachability here (like a "friend"
+    # class in C++, although that's not a Python concept) and dispatch on
+    # node type.
+
+    def reachable(self) -> Set[_Symbol]:
+        """Which non-terminal symbols in the grammar are reachable?"""
+        visited = set()
+        def walk(item: RHSItem):
+            if isinstance(item, _Symbol):
+                if item in visited:
+                    return
+                visited.add(item)
+                walk(item.expansions)
+            elif isinstance(item,_Seq):
+                for e in item.items:
+                    walk(e)
+            elif isinstance(item, _Choice):
+                for e in item.items:
+                    walk(e)
+            elif isinstance(item, _Kleene):
+                walk(item.child)
+            elif isinstance(item, _Literal):
+                return
+            else:
+                raise Exception(f"Oops, no walker for {type(item)} ")
+        walk(self.gram.start)
+        return visited
+
+    def unreachable(self) -> Set[_Symbol]:
+        """Which symbols are unreachable?"""
+        can_reach = self.reachable()
+        cannot_reach = set()
+        for sym in self.gram.symbols:
+            if sym not in can_reach:
+                cannot_reach.add(sym)
+        return cannot_reach
+
+    def prune_unreachable(self):
+        """Prune unreachable symbols from grammar"""
+        symbols = list(self.gram.symbols)
+        keep = self.reachable()
+        for name, sym in list(self.gram.symbols.items()):
+            if sym not in keep:
+                del self.gram.symbols[name]
+        return
 
 
 class FactorEmpty(TransformBase):
