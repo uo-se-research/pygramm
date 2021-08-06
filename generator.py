@@ -7,6 +7,8 @@ different non-terminals).
 """
 
 from pygramm.grammar import Grammar, RHSItem, _Seq, _Literal
+from pygramm.biased_choice import Bias   # Debugging biased choice
+from pygramm.grammar_bias import dump_bias
 from typing import List
 
 import random
@@ -196,8 +198,11 @@ class Gen_State:
 
 def random_sentence(g: Grammar, budget: int = 20,
                     min_length: int = 10,
-                    interpret_escapes: bool = False):
+                    interpret_escapes: bool = False,
+                    bias=None):
     """A generator of random sentences, without external control"""
+    if bias==None:
+        bias = Bias()
     while g.start.min_tokens() > budget:
         log.info(f"Bumping budget by minimum requirement {g.start.min_tokens()}")
         budget += g.start.min_tokens()
@@ -210,10 +215,13 @@ def random_sentence(g: Grammar, budget: int = 20,
         else:
             print(state.stack_state_str())
             choices = state.choices()
-            choice = random.choice(choices)
+            #choice = random.choice(choices)
+            choice = bias.choose(choices)
             log.debug(f"Choosing {choice}")
             state.expand(choice)
     txt = state.text
     if interpret_escapes:
         txt = txt.encode().decode('unicode-escape')
-    print(f"Final: \n{state.text}")
+    print(f"Final: \n{txt}")
+    bias.reward()
+    # print(dump_bias(bias, g))

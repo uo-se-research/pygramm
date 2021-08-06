@@ -66,14 +66,16 @@ class TokenCat(Enum):
     KLEENE = r'\*'
     LPAREN = r'\('
     RPAREN = r'\)'
+    OPTIONAL = r'\?'   # EBNF shorthand: (x y)?  == ((x y)|/*empty*/)
+    KLEENEPLUS = r"\+" # EBNF shorthand x+ == xx*
     # Merges: [symbol, symbol, ...]
     LBRACK = r"\["
     RBRACK = r"\]"
     COMMA = ","
     # Relations
-    BNFPROD = r"::="
-    # LEXPROD = r":="
     BNFMERGE = r":::"
+    BNFPROD = r"::=|:"  # Added yacc/antlr style productions
+    # LEXPROD = r":="
     # Error processing
     error = "."           # catch-all for errors
     END = "---SHOULD NOT MATCH---"  # Not really a pattern

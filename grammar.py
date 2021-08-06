@@ -3,6 +3,7 @@ M Young, June-August 2020
 """
 import re
 import logging
+import sys
 from typing import List, Dict, Optional
 
 import pygramm.config as config
@@ -127,7 +128,7 @@ class _Symbol(RHSItem):
         self.name = name
         self._min_length = None
         self._pot_tokens = None
-        self.expansions = []  # Filled in in finalization
+        self.expansions = None  # Filled in in finalization
 
     def __str__(self) -> str:
         return self.name
@@ -569,8 +570,14 @@ class Grammar(object):
                 for choice in expansions:
                     choices.append(choice)
                 self.symbols[name].expansions = choices
-            else:
-                raise Exception(f"No productions for {name}")
+        # List ALL symbols without productions
+        incomplete = False
+        for name, sym in self.symbols.items():
+            if sym.expansions is None:
+                print(f"*** No productions for {name}", file=sys.stderr)
+                incomplete = True
+        if incomplete:
+            raise Exception(f"Grammar is not complete")
         # Do not use self._productions further; the master copy
         # is in the expansions member of each symbol
         self._productions = []

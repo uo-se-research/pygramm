@@ -62,7 +62,7 @@ def require(stream: TokenStream, category: TokenCat, desc: str = "", consume=Fal
 #  production ::= IDENT '::=' bnf_rhs
 #  bnf_rhs ::= bnf_seq { '|' bnf_seq }
 #  bnf_seq ::= bnf_primary { bnf_primary }
-#  bnf_primary ::= symbol [ '*' ]
+#  bnf_primary ::= symbol [ '*' | '?' ]
 #  symbol ::= IDENT | STRING | group
 #  group ::= '(' bnf_rhs ')'
 #
@@ -158,7 +158,7 @@ def _bnf_seq(stream: TokenStream, gram: Grammar) -> RHSItem:
         seq.append(next_item)
     return seq
 
-#  rhs_primary ::= symbol [ '*' ]  # Kleene
+#  rhs_primary ::= symbol [ '*' | '?']  # Kleene, or optional
 
 
 def _bnf_primary(stream: TokenStream, gram: Grammar) -> RHSItem:
@@ -168,6 +168,21 @@ def _bnf_primary(stream: TokenStream, gram: Grammar) -> RHSItem:
     if stream.peek().kind == TokenCat.KLEENE:
         token = stream.take()
         return gram.kleene(item)
+    elif stream.peek().kind == TokenCat.KLEENEPLUS:
+        token = stream.take()
+        # EBNF shorthand, x+ == xx*
+        seq = gram.seq()
+        seq.append(item)
+        seq.append(gram.kleene(item))
+        return seq
+    elif stream.peek().kind == TokenCat.OPTIONAL:
+        token = stream.take()
+        # x? is shorthand for (x|/*empty*/)
+        omit_it = gram.seq()
+        maybe = gram.choice()
+        maybe.append(item)
+        maybe.append(omit_it)
+        return maybe
     else:
         return item
 
