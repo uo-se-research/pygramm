@@ -330,8 +330,14 @@ class _Choice(RHSItem):
         self.items.append(item)
 
     def __str__(self) -> str:
-        disjunct_str = " | ".join(str(item) for item in self.items)
-        return f"({disjunct_str})"
+        terms = [str(item) for item in self.items]
+        # Fits on one line?
+        disjunct_str = " | ".join(terms)
+        if len(disjunct_str) < 70:
+            return f"({disjunct_str})"
+        # Otherwise break it up, one line per choice.
+        disjunct_str = "\n\t| ".join(terms)
+        return f"( {disjunct_str})"
 
     def latex(self) -> str:
         disjunct_str = " \\OR ".join(item.latex() for item in self.items)
