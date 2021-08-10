@@ -8,7 +8,32 @@ sql_stmt_list ::= (";")* select_stmt (";" (";")* select_stmt)* (";")* ;
 select_stmt ::= (common_table_stmt | EMPTY) select_core (compound_operator select_core)* (order_by_stmt | EMPTY) (limit_stmt | EMPTY) ;
 
 # expr, min length 1
-expr ::= (literal_value | BIND_PARAMETER | ((any_name "." | EMPTY) any_name "." | EMPTY) any_name | unary_operator expr | expr "||" expr | expr ("*" | "/" | "%") expr | expr ("+" | "-") expr | expr ("<<" | ">>" | "&" | "|") expr | expr ("<" | "<=" | ">" | ">=") expr | expr ("=" | "==" | "!=" | "<>" | "IS " | "IS " "NOT " | "IN " | "LIKE " | "GLOB " | "MATCH " | "REGEXP ") expr | expr "AND " expr | expr "OR " expr | any_name "(" ((("DISTINCT " | EMPTY) expr ("," expr)* | "*") | EMPTY) ")" (filter_clause | EMPTY) (over_clause | EMPTY) | "(" expr ("," expr)* ")" | "CAST " "(" expr "AS " type_name ")" | expr "COLLATE " any_name | expr ("NOT " | EMPTY) ("LIKE " | "GLOB " | "REGEXP " | "MATCH ") expr ("ESCAPE " expr | EMPTY) | expr ("ISNULL " | "NOTNULL " | "NOT " "NULL ") | expr "IS " ("NOT " | EMPTY) expr | expr ("NOT " | EMPTY) "BETWEEN " expr "AND " expr | expr ("NOT " | EMPTY) "IN " ("(" ((select_stmt | expr ("," expr)*) | EMPTY) ")" | (any_name "." | EMPTY) any_name | (any_name "." | EMPTY) any_name "(" (expr ("," expr)* | EMPTY) ")") | (("NOT " | EMPTY) "EXISTS " | EMPTY) "(" select_stmt ")" | "CASE " (expr | EMPTY) "WHEN " expr "THEN " expr ("WHEN " expr "THEN " expr)* ("ELSE " expr | EMPTY) "END " | raise_function) ;
+expr ::= (
+    literal_value |
+    BIND_PARAMETER |
+    ((any_name "." | EMPTY) any_name "." | EMPTY) any_name |
+    unary_operator expr |
+    expr "||" expr |
+    expr ("*" | "/" | "%") expr |
+    expr ("+" | "-") expr |
+    expr ("<<" | ">>" | "&" | "|") expr |
+    expr ("<" | "<=" | ">" | ">=") expr |
+    expr ("=" | "==" | "!=" | "<>" | "IS " | "IS " "NOT " | "IN " | "LIKE " | "GLOB " | "MATCH " | "REGEXP ") expr |
+    expr "AND " expr |
+    expr "OR " expr |
+    any_name "(" ((("DISTINCT " | EMPTY) expr ("," expr)* | "*") | EMPTY) ")" (filter_clause | EMPTY) (over_clause | EMPTY) |
+    "(" expr ("," expr)* ")" |
+    "CAST " "(" expr "AS " type_name ")" |
+    expr "COLLATE " any_name |
+    expr ("NOT " | EMPTY) ("LIKE " | "GLOB " | "REGEXP " | "MATCH ") expr ("ESCAPE " expr | EMPTY) |
+    expr ("ISNULL " | "NOTNULL " | "NOT " "NULL ") |
+    expr "IS " ("NOT " | EMPTY) expr |
+    expr ("NOT " | EMPTY) "BETWEEN " expr "AND " expr |
+    expr ("NOT " | EMPTY) "IN " ("(" ((select_stmt | expr ("," expr)*) | EMPTY) ")" |
+    (any_name "." | EMPTY) any_name | (any_name "." | EMPTY) any_name "(" (expr ("," expr)* | EMPTY) ")") |
+    (("NOT " | EMPTY) "EXISTS " | EMPTY) "(" select_stmt ")" |
+    "CASE " (expr | EMPTY) "WHEN " expr "THEN " expr ("WHEN " expr "THEN " expr)* ("ELSE " expr | EMPTY) "END " |
+    raise_function) ;
 
 # asc_desc, min length 1
 asc_desc ::= ("ASC " | "DESC ") ;
