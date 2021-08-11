@@ -66,8 +66,8 @@ class TokenCat(Enum):
     KLEENE = r'\*'
     LPAREN = r'\('
     RPAREN = r'\)'
-    OPTIONAL = r'\?'   # EBNF shorthand: (x y)?  == ((x y)|/*empty*/)
-    KLEENEPLUS = r"\+" # EBNF shorthand x+ == xx*
+    OPTIONAL = r'\?'     # EBNF shorthand: (x y)?  == ((x y)|/*empty*/)
+    KLEENEPLUS = r"\+"   # EBNF shorthand x+ == xx*
     # Merges: [symbol, symbol, ...]
     LBRACK = r"\["
     RBRACK = r"\]"
@@ -84,7 +84,7 @@ class TokenCat(Enum):
 def all_token_re() -> str:
     """Create a regular expression that matches ALL of the tokens in TokenCat.
     Pattern will look like
-     "(?:\+)|(?:\*)|...|(?:[0-9]+)"
+     r"(?:\+)|(?:\*)|...|(?:[0-9]+)"
     i.e., each token pattern P will be enclosed in the non-capturing
     group (?:P) and all the groups will be combined as alternatives
     with | .
@@ -148,7 +148,7 @@ class TokenStream(object):
            # Do something with the token
     """
 
-    def __init__(self, f: io.IOBase):
+    def __init__(self, f: io.TextIOBase):
         self.file = f
         self.line_num = 0  # Public variable
         self.tokens = []
@@ -170,7 +170,7 @@ class TokenStream(object):
                 # End of file, leave zero tokens in buffer
                 break
             try:
-                self.tokens = lex(line.strip())
+                self.tokens = self.lex(line.strip())
             except LexicalError as e:
                 msg = f"Line {self.line_num}: {e}"
                 raise LexicalError(msg)
@@ -210,37 +210,37 @@ class TokenStream(object):
         self.tokens.insert(0, token)
 
 
-def lex(s: str) -> Sequence[Token]:
-    """Break string into a list of Token objects.
-    NOTE TOKENS_PAT must NOT include matching groups!
-    """
-    log.debug(f"Running big regular expression on '{s}'")
-    words = TOKENS_PAT.findall(s)
-    log.debug(f"Findall returned {words}")
-    tokens = []
-    for word in words:
-        token = classify(word)
-        if token.kind == TokenCat.ignore:
-            log.debug(f"Skipping {token}")
-            continue
-        tokens.append(token)
-    return tokens
+    def lex(self, s: str) -> Sequence[Token]:
+        """Break string into a list of Token objects.
+        NOTE TOKENS_PAT must NOT include matching groups!
+        """
+        log.debug(f"Running big regular expression on '{s}'")
+        words = TOKENS_PAT.findall(s)
+        log.debug(f"Findall returned {words}")
+        tokens = []
+        for word in words:
+            token = self.classify(word)
+            if token.kind == TokenCat.ignore:
+                log.debug(f"Skipping {token}")
+                continue
+            tokens.append(token)
+        return tokens
 
-
-def classify(word: str) -> Token:
-    """Convert a textual token into a Token object
-    with a value and category.
-    """
-    log.debug(f"Classifying token '{word}")
-    for kind in TokenCat:
-        log.debug(f"Checking '{word}' for token class '{kind}'")
-        pattern = kind.value
-        if re.fullmatch(pattern, word):
-            log.debug(f"Classified as {kind}")
-            if kind.name == "error":
-                raise LexicalError(f"Unrecognized character '{word}'")
-            return Token(word, kind)
-    raise LexicalError(f"Unrecognized token '{word}'")
+    def classify(self, word: str) -> Token:
+        """Convert a textual token into a Token object
+        with a value and category.
+        """
+        log.debug(f"Classifying token '{word}")
+        for kind in TokenCat:
+            log.debug(f"Checking '{word}' for token class '{kind}'")
+            pattern = kind.value
+            if re.fullmatch(pattern, word):
+                log.debug(f"Classified as {kind}")
+                if kind.name == "error":
+                    raise LexicalError(f"Unrecognized character '{word}'"
+                                       f" in line {self.line_num}")
+                return Token(word, kind)
+        raise LexicalError(f"Unrecognized token '{word}'")
 
 
 ###

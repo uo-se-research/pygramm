@@ -184,6 +184,8 @@ class _Literal(RHSItem):
 
     def __str__(self) -> str:
         escaped = self.text.encode("unicode_escape").decode('ascii')
+        # We must further escape a quotation mark if present
+        escaped = escaped.replace('"', r'\"')
         return f'"{escaped}"'
 
     def latex(self) -> str:
