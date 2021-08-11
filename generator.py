@@ -199,7 +199,7 @@ class Gen_State:
 def random_sentence(g: Grammar, budget: int = 20,
                     min_length: int = 10,
                     interpret_escapes: bool = False,
-                    bias=None):
+                    bias=None) -> str:
     """A generator of random sentences, without external control"""
     if bias==None:
         bias = Bias()
@@ -207,13 +207,13 @@ def random_sentence(g: Grammar, budget: int = 20,
         log.info(f"Bumping budget by minimum requirement {g.start.min_tokens()}")
         budget += g.start.min_tokens()
     state = Gen_State(g, budget, min_length=min_length)
-    print(f"Initially {state}")
+    log.debug(f"Initially {state}")
     while state.has_more():
         log.debug(f"=> {state} margin/budget {state.margin}/{state.budget}")
         if state.is_terminal():
             state.shift()
         else:
-            print(state.stack_state_str())
+            log.debug(state.stack_state_str())
             choices = state.choices()
             #choice = random.choice(choices)
             choice = bias.choose(choices)
@@ -222,6 +222,6 @@ def random_sentence(g: Grammar, budget: int = 20,
     txt = state.text
     if interpret_escapes:
         txt = txt.encode().decode('unicode-escape')
-    print(f"Final: \n{txt}")
-    bias.reward()
-    # print(dump_bias(bias, g))
+    # bias.reward()
+    return txt
+    # log.debug(dump_bias(bias, g))

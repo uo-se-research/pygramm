@@ -39,8 +39,9 @@ xform.transform_all_rhs(gram)
 # print("*** *** ***")
 # print("*** Grammar (str) ***")
 # print(gram.dump())
-print("*** Generated sentences ***")
+# print("*** Generated sentences ***")
 # budget = max(5, 2 * gram.start.min_tokens())
 for i in range(5):
-    random_sentence(gram, budget=100)
+    txt = random_sentence(gram, budget=60, min_length=50)
+    print(f"\n\nGenerated:\n {txt}")
 
