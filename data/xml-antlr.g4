@@ -80,23 +80,15 @@ Name        :   NameStartChar NameChar* ;
 #S           :   [ \t\r\n]               -> skip ;
 S : " " | "\t" | "\r" | "\n" ;
 
-# HEXDIGIT    :   [a-fA-F0-9] ;
-HEXDIGIT : "a" | "b" | "c" |"d" | "e" | "f"
-    | "A" | "B" | "C" | "D" | "E" | "F"
-    | "0" | "1" | "2" | "3" | "4"
-    | "5" | "6" | "7" | "8" | "9"
-    ;
+HEXDIGIT    :   [a-fA-F0-9] ;
 
-# DIGIT       :   [0-9] ;
-DIGIT : "0" | "1" | "2" | "3" | "4"
-    | "5" | "6" | "7" | "8" | "9"
-    ;
+DIGIT       :   [0-9] ;
 
 NameChar    :   NameStartChar
             |   '-' | '_' | '.' | DIGIT
             |   '\u00B7'
-            # |   '\u0300'..'\u036F'
-            | '\u0300' | '\u036F'
+            |   [\u0300..\u036F]
+
             # |   '\u203F'..'\u2040'
             |   '\u203F' | '\u2040'
             ;

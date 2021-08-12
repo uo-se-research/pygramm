@@ -8,13 +8,13 @@ import logging
 from typing import TextIO, List
 
 import pygramm.config as config
-from pygramm.grammar import Grammar, RHSItem, _Literal
+from pygramm.grammar import Grammar, RHSItem, _Literal, _CharRange
 from pygramm.lex import TokenStream, TokenCat
 
 
 logging.basicConfig()
 log = logging.getLogger(__name__)
-# log.setLevel(logging.INFO)
+log.setLevel(logging.INFO)
 
 
 class InputError(Exception):
@@ -125,7 +125,8 @@ def _merge_symbols(stream) -> List[str]:
 #  bnf_seq ::= bnf_primary { bnf_primary }
 
 # 'first' items of 'symbol'
-FIRST_SYM = [TokenCat.IDENT, TokenCat.STRING, TokenCat.CHAR, TokenCat.LPAREN]
+FIRST_SYM = [TokenCat.IDENT, TokenCat.STRING, TokenCat.CHAR,
+             TokenCat.LPAREN, TokenCat.CHARCLASS]
 
 
 def _bnf_rhs(stream: TokenStream, gram: Grammar) -> RHSItem:
@@ -202,8 +203,37 @@ def _bnf_symbol(stream: TokenStream, gram: Grammar) -> RHSItem:
     elif token.kind == TokenCat.IDENT:
         # log.debug("Forming symbol")
         return gram.symbol(token.value)
+    elif token.kind == TokenCat.CHARCLASS:
+        return form_character_class(token.value, gram)
     else:
         raise InputError(f"Unexpected input token {token.value}")
+
+
+def form_character_class(s: str, gram: Grammar) -> _CharRange:
+    """We have input like [a-dKM-Or] and want to
+    create a special kind of _Choice node to represent
+    the alternatives.
+    """
+    assert s[0] == "[" and s[-1] == "]"
+    choices = _CharRange(desc=s)
+    # We need to see each character code as an indvidual
+    # character.
+    r = (s[1:-1]).encode().decode('unicode-escape')
+    # FIXME: This will not handle \\[ correctly
+    pos = 0
+    while pos < len(r):
+        # A span x-y?
+        #  x would be at position len(r) - 3 or earlier
+        if pos <= len(r) - 2 and r[pos+1] == '-':
+            range_begin = r[pos]
+            range_end = r[pos+2]
+            pos += 3
+            for i in range(ord(range_begin),ord(range_end)+1):
+                choices.append(gram.literal(chr(i)))
+        else:
+            choices.append(gram.literal(r[pos]))
+            pos += 1
+    return choices
 
 
 def _lex_rhs(stream: TokenStream, gram: Grammar) -> _Literal:

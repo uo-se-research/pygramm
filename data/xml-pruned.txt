@@ -79,8 +79,7 @@ NameChar ::= ( NameStartChar
 	| "."
 	| DIGIT
 	| "\xb7"
-	| "\u0300"
-	| "\u036f"
+	| [\u0300..\u036F]
 	| "\u203f"
 	| "\u2040") ;
 

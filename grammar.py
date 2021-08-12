@@ -372,6 +372,24 @@ class _Choice(RHSItem):
         raise NotImplementedError("expand not implemented")
 
 
+class _CharRange(_Choice):
+    """A choice that was specified as a character range,
+    e.g., [a-zA-Z].
+    """
+
+    def __init__(self, desc=None):
+        self.items: List[RHSItem] = []
+        self.desc = desc
+
+    # Print as character range if the original description
+    # was given
+    def __str__(self) -> str:
+        if self.desc:
+            return self.desc
+        else:
+            return super().__str__(self)
+
+
 class Grammar(object):
     """A grammar is a collection of productions.
     Productions are indexed by non-terminal

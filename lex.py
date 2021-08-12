@@ -69,6 +69,8 @@ class TokenCat(Enum):
     OPTIONAL = r'\?'     # EBNF shorthand: (x y)?  == ((x y)|/*empty*/)
     KLEENEPLUS = r"\+"   # EBNF shorthand x+ == xx*
     # Merges: [symbol, symbol, ...]
+    # Also character classes [a-zA-Z]
+    CHARCLASS = r"\[(?:\\\]|[^\]])*\]"
     LBRACK = r"\["
     RBRACK = r"\]"
     COMMA = ","
