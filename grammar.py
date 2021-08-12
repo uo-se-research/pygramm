@@ -196,7 +196,7 @@ class _Literal(RHSItem):
         return f'_Literal("{escaped}")'
 
     def min_tokens(self) -> int:
-        return len(self.text) if config.LEN_BASED_SIZE else 1
+        return len(bytes(self.text,'utf-8')) if config.LEN_BASED_SIZE else 1
 
     def pot_tokens(self) -> int:
         return 1
