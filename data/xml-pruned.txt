@@ -14,7 +14,7 @@ element ::= ( "<" Name (attribute)* ">" content "<" "/" Name ">"
 # XMLDeclOpen, min length 2
 XMLDeclOpen ::= "<?xml" S ;
 
-# attribute, min length 4
+# attribute, min length 5
 attribute ::= Name "=" STRING ;
 
 # content, min length 0
@@ -27,10 +27,10 @@ chardata ::= (TEXT | SEA_WS) ;
 reference ::= (EntityRef | CharRef) ;
 
 # CDATA, min length 2
-CDATA ::= "<![CDATA[" (TEXT)* "]]>" ;
+CDATA ::= "<![CDATA[" ANY "]]>" ;
 
 # COMMENT, min length 2
-COMMENT ::= "<!--" (TEXT)* "-->" ;
+COMMENT ::= "<!--" (DOT)* "-->" ;
 
 # Name, min length 1
 Name ::= NameStartChar (NameChar)* ;
@@ -41,14 +41,32 @@ EntityRef ::= "&" Name ";" ;
 # CharRef, min length 3
 CharRef ::= ("&#" DIGIT (DIGIT)* ";" | "&#x" HEXDIGIT (HEXDIGIT)* ";") ;
 
-# STRING, min length 2
-STRING ::= "\"" (("a" | "b" | "c"))* "\"" ;
+# STRING, min length 3
+STRING ::= ("\"" TEXT "\"" | "'" TEXT "'") ;
 
 # TEXT, min length 1
-TEXT ::= ("a" | "b" | "c" | "d" | "e") ;
+TEXT ::= DOT (DOT)* ;
 
 # SEA_WS, min length 1
 SEA_WS ::= (" " | "\t" | ("\r" | EMPTY) "\n") ((" " | "\t" | ("\r" | EMPTY) "\n"))* ;
+
+# DOT, min length 1
+DOT ::= (some_alpha | some_digit | some_punc | some_multibyte) ;
+
+# some_alpha, min length 1
+some_alpha ::= (("W" | "X" | "Y" | "Z") | ("w" | "x" | "y" | "z")) ;
+
+# some_digit, min length 1
+some_digit ::= ("0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9") ;
+
+# some_punc, min length 1
+some_punc ::= ("\"" | "'" | "," | "/" | ":" | ";") ;
+
+# some_multibyte, min length 1
+some_multibyte ::= [\u203F-\u2040] ;
+
+# ANY, min length 0
+ANY ::= (DOT)* ;
 
 # DIGIT, min length 1
 DIGIT ::= ("0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9") ;
@@ -59,18 +77,67 @@ HEXDIGIT ::= ( ("0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9")
 	| ("a" | "b" | "c" | "d" | "e" | "f")) ;
 
 # S, min length 1
-S ::= (" " | "\t" | "\r" | "\n") ;
+S ::= [ \t\r\n] ;
 
 # NameStartChar, min length 1
-NameStartChar ::= ( ("a" | "b" | "c" | "d")
-	| ("\u2070")
-	| ("\u218f")
-	| ("\u2c00")
-	| ("\u2fef" | "\u3001" | "\ud7ff")
-	| ("\uf900")
-	| ("\ufdcf")
-	| ("\ufdf0")
-	| ("\ufffd")) ;
+NameStartChar ::= ( ( (":")
+	| ( "A"
+	| "B"
+	| "C"
+	| "D"
+	| "E"
+	| "F"
+	| "G"
+	| "H"
+	| "I"
+	| "J"
+	| "K"
+	| "L"
+	| "M"
+	| "N"
+	| "O"
+	| "P"
+	| "Q"
+	| "R"
+	| "S"
+	| "T"
+	| "U"
+	| "V"
+	| "W"
+	| "X"
+	| "Y"
+	| "Z")
+	| ( "a"
+	| "b"
+	| "c"
+	| "d"
+	| "e"
+	| "f"
+	| "g"
+	| "h"
+	| "i"
+	| "j"
+	| "k"
+	| "l"
+	| "m"
+	| "n"
+	| "o"
+	| "p"
+	| "q"
+	| "r"
+	| "s"
+	| "t"
+	| "u"
+	| "v"
+	| "w"
+	| "x"
+	| "y"
+	| "z"))
+	| [\u2070-\u218F]
+	| [\u2C00-\u2FEF]
+	| [\u3001-\uD7FF]
+	| [\uF900-\uFDCF]
+	| [\uFDF0-\uFFFD]) ;
 
 # NameChar, min length 1
 NameChar ::= ( NameStartChar
@@ -79,9 +146,8 @@ NameChar ::= ( NameStartChar
 	| "."
 	| DIGIT
 	| "\xb7"
-	| [\u0300..\u036F]
-	| "\u203f"
-	| "\u2040") ;
+	| [\u0300-\u036F]
+	| [\u203F-\u2040]) ;
 
 # EMPTY, min length 0
 EMPTY ::= /* empty */ ;

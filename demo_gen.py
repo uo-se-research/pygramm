@@ -42,7 +42,15 @@ xform.transform_all_rhs(gram)
 # print(gram.dump())
 # print("*** Generated sentences ***")
 # budget = max(5, 2 * gram.start.min_tokens())
-for i in range(5):
-    txt = random_sentence(gram, budget=60, min_length=50)
-    print(f"\n\nGenerated:\n {txt}")
-
+bias_base = Bias()
+for i in range(100):
+    bias = bias_base.fork()
+    txt = random_sentence(gram, budget=60, min_length=30, bias=bias)
+    if len(txt) > 50:
+        bias.reward()
+    elif len(txt) < 40:
+        bias.penalize()
+    print(f"\nGenerated:\n {txt}")
+print("Bias table: ")
+print(dump_bias(bias_base, gram))
+print("Bias should be up there^")

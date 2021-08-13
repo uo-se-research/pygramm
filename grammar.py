@@ -36,9 +36,7 @@ class TransformBase:
         pass
 
     def transform_all_rhs(self, g: "Grammar"):
-        """Transform RHS of each production.  Does
-        not prune productions (yet).
-        """
+        """Transform RHS of each production."""
         self.setup(g)
         for name in g.symbols:
             sym = g.symbols[name]
@@ -180,26 +178,42 @@ class _Literal(RHSItem):
         # Any conversion from escaped to unicode should take
         # place BEFORE we get here
         self.text = text
-        log.debug(f"Creating new literal {self} length {len(self.text)}")
+        #  Length, repr, and string have a non-trivial cost for
+        #  unicode, which becomes problematic for big character ranges.
+        #  We need to cache them and compute them only once, on demand (lazily)
+        self._len_cache: Optional[int] = None
+        self._repr_cache: Optional[str] = None
+        self._str_cache: Optional[str] = None
+        # log.debug(f"Creating new literal {self} length {len(self.text)} chars")
 
     def __str__(self) -> str:
-        escaped = self.text.encode("unicode_escape").decode('ascii')
-        # We must further escape a quotation mark if present
-        escaped = escaped.replace('"', r'\"')
-        return f'"{escaped}"'
+        if self._str_cache is None:
+            escaped = self.text.encode("unicode_escape").decode('ascii')
+            # We must further escape a quotation mark if present
+            escaped = escaped.replace('"', r'\"')
+            self._str_cache = f'"{escaped}"'
+        return self._str_cache
 
     def latex(self) -> str:
         return f"\\literal{LB}{ltxesc(str(self))}{RB}"  # We use escaping rather than \verb||
 
     def __repr__(self) -> str:
-        escaped = self.text.encode("unicode_escape").decode('ascii')
-        return f'_Literal("{escaped}")'
+        if self._repr_cache is None:
+            escaped = self.text.encode("unicode_escape").decode('ascii')
+            self._repr_cache = f'_Literal("{escaped}")'
+        return self._repr_cache
+
+    def _len(self):
+        """We cache it because computing length of unicode literals is a non-trivial cost"""
+        if self._len_cache is None:
+            self._len_cache = len(bytes(self.text, 'utf-8')) if config.LEN_BASED_SIZE else 1
+        return self._len_cache
 
     def min_tokens(self) -> int:
-        return len(bytes(self.text,'utf-8')) if config.LEN_BASED_SIZE else 1
+        return self._len()
 
     def pot_tokens(self) -> int:
-        return 1
+        return self._len()
 
     def is_terminal(self) -> bool:
         """False for everything except literals"""
@@ -353,7 +367,7 @@ class _Choice(RHSItem):
         return min(item.min_tokens() for item in self.items)
 
     def pot_tokens(self) -> int:
-        return max(item.pot_tokens() for item in self.items)
+        return  max(item.pot_tokens() for item in self.items)
 
     def choices(self, budget: int = config.HUGE) -> List["RHSItem"]:
         return [item for item in self.items if item.min_tokens() <= budget]
@@ -378,8 +392,25 @@ class _CharRange(_Choice):
     """
 
     def __init__(self, desc=None):
-        self.items: List[RHSItem] = []
+        super().__init__()
         self.desc = desc
+        # Cache and lazily compute min and potential tokens
+        self._min_len_cache: Optional[int] = None
+        self._pot_len_cache: Optional[int] = None
+
+    def min_tokens(self) -> int:
+        # We can cache because the elements are literals,
+        # whose length never changes.
+        if self._min_len_cache is None:
+            self._min_len_cache = min(item.min_tokens() for item in self.items)
+        return self._min_len_cache
+
+    def pot_tokens(self) -> int:
+        # We can cache because the elements are literals,
+        # whose length never changes
+        if self._pot_len_cache is None:
+            self._pot_len_cache = max(item.pot_tokens() for item in self.items)
+        return self._pot_len_cache
 
     # Print as character range if the original description
     # was given
@@ -518,7 +549,7 @@ class Grammar(object):
 
     def _calc_min_tokens(self):
         """Calculate the minimum length of each non-terminal,
-        updating the initial estimate of HUGE.  This
+        updating the initial estimate of HUGE.
         """
         # We will iterate *down* to a fixed point from an
         # initial over-estimate of phrase length
@@ -527,21 +558,25 @@ class Grammar(object):
         changed = True
         # Iterate to fixed point
         while changed:
-            log.debug("Iterating calc_min_tokens")
+            log.debug("\n*** Iterating calc_min_tokens ***\n")
             changed = False
             for name in self.symbols:
                 sym = self.symbols[name]
-                log.debug(f"Inspecting symbol {sym}")
+                # log.debug(f"Inspecting symbol {sym}")
                 prior_estimate = sym.min_tokens()
                 new_estimate = sym.expansions.min_tokens()
                 if new_estimate < prior_estimate:
                     changed = True
                     sym.set_min_length(new_estimate)
-                    log.debug(f"New minimum length estimate {new_estimate} for {sym}")
+                    log.debug(f"< {new_estimate} (was {prior_estimate}) for {sym}")
+                elif new_estimate > prior_estimate:
+                    log.debug(f"> {new_estimate} (was {prior_estimate}) for {sym}!")
+                else:
+                    log.debug(f"= {new_estimate} (was {prior_estimate}) for {sym}")
         # Sanity check:  Did we find a length for each symbol?
         for name in self.symbols:
             assert self.symbols[name].min_tokens() < config.HUGE, \
-                    f"Failed to find min length for {name}"
+                    f"Failed to find min length for symbol '{name}'"
             # Should never fail, but ...
 
         # For sentence generation, we may also want to set lower
@@ -654,9 +689,9 @@ class GrammarDiagnostics:
 
     def unreachable(self) -> Set[_Symbol]:
         """Which symbols are unreachable?"""
-        can_reach = self.reachable()
-        cannot_reach = set()
-        for sym in self.gram.symbols:
+        can_reach: Set[_Symbol] = self.reachable()
+        cannot_reach : Set[_Symbol] = set()
+        for name, sym in self.gram.symbols.items():
             if sym not in can_reach:
                 cannot_reach.add(sym)
         return cannot_reach
