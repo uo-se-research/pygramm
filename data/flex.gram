@@ -15,31 +15,33 @@ sp ::= " ";
 
 rules ::= (regex sp ";\n")* ;  # Omit actions
 
-regex ::= r_term+ ;
+regex ::= r_term optContext ;
 # The grammar for regular expressions follows
 # the definitions given at
 # http://dinosaur.compilertools.net/flex/flex_7.html#SEC7
 r_term ::=
-    char            # matches itself
+    normal_char     # matches itself
     | "."           # Wild card match
     | char_class
     | kleene
     | kleene_plus
     | optional
     | repeat_range
-    # | expansion  # Reference to macro
+    # | expansion  # Reference to macro, almost impossible to match
     | quoted
     | escape_seq
     | group
     | seq
     | either
-    | in_start_condition
-    | "<<EOF>>"
+    # | in_start_condition  # Nearly impossible to match to declaration
+    # | "<<EOF>>"
     ;
 
 char ::= [a-zA-Z0-9 ,*+?-]
     | escape_seq
     ;
+
+normal_char ::= [a-zA-Z0-9] | escape_seq ;
 
 char_class ::= "[" "^"? range+ "]" ;
 range ::= char+
@@ -67,6 +69,8 @@ quoted ::= ["]  char+ ["] ;
 group ::= "(" r_term ")" ;
 seq ::= r_term r_term ;
 either ::= r_term "|" r_term ;
-in_start_condition ::= "<" [a-zA-Z0-9]+ ">" ;
+in_start_condition ::= "<" [a-zA-Z0-9]+ ">" r_term ;
 
+optContext ::= "/" r_term
+    | /* empty */ ;
 
