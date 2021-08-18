@@ -67,6 +67,6 @@ quoted ::= ["]  char+ ["] ;
 group ::= "(" r_term ")" ;
 seq ::= r_term r_term ;
 either ::= r_term "|" r_term ;
-in_start_condition ::= "<<" [a-zA-Z0-9]+ ">>" ;
+in_start_condition ::= "<" [a-zA-Z0-9]+ ">" ;
 
 
