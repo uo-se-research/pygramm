@@ -15,6 +15,10 @@ Factor ::= number | ident;
 number = "[0-9]+" ;
 ident = "[a-zA-Z][a-zA-Z0-9_]*" ;
 
+Note on escaped characters:  I don't want to categorize here which
+strings should undergo decoding and which should not, so that is
+handled in the parser.
+
 """
 import io
 from typing import Sequence

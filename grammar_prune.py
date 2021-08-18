@@ -30,17 +30,19 @@ def main():
     xform = UnitProductions(gram)
     xform.transform_all_rhs(gram)
 
-    xform = CharClasses(gram)
-    xform.transform_all_rhs(gram)
+    # xform = CharClasses(gram)
+    # xform.transform_all_rhs(gram)
 
     xform = FactorEmpty(gram)
     xform.transform_all_rhs(gram)
 
     pruner = GrammarDiagnostics(gram)
     reachable = pruner.reachable()
-    log.info(f"*** Reachable symbols: {reachable}")
+    reachable_str = ", ".join([str(sym) for sym in reachable])
+    log.info(f"*** Reachable symbols: {reachable_str}")
     unreachable = pruner.unreachable()
-    log.info(f"***Unreachable symbols: {unreachable}")
+    unreachable_str = ", ".join([str(sym) for sym in unreachable])
+    log.info(f"***Unreachable symbols: {unreachable_str}")
     pruner.prune_unreachable()
     print(gram.dump(), file=args.output)
 

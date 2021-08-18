@@ -188,7 +188,10 @@ class _Literal(RHSItem):
 
     def __str__(self) -> str:
         if self._str_cache is None:
+            # Internal form is unicode string.  We need it
+            # in a printable form.
             escaped = self.text.encode("unicode_escape").decode('ascii')
+            #   Literal should already be a unicode string
             # We must further escape a quotation mark if present
             escaped = escaped.replace('"', r'\"')
             self._str_cache = f'"{escaped}"'
@@ -527,7 +530,10 @@ class Grammar(object):
 
     def literal(self, text: str):
         """Unique node for this literal string"""
-        text = text.encode().decode('unicode-escape')
+        # text = text.encode().decode('unicode-escape')
+        # Do the unicode encoding earlier!
+        # Must be done only once so that "\\" gets interpreted
+        # only once.
         if text not in self.literals:
             self.literals[text] = _Literal(text)
         return self.literals[text]
