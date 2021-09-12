@@ -134,7 +134,7 @@ class _Symbol(RHSItem):
         return self.name
 
     def latex(self) -> str:
-        return f"\\nonterminal{LB}{ltxesc(self.name)}{RB}"
+        return f"\\nonterminal{LB}{ltxesc(self.name[1:-1])}{RB}"
 
     def __repr__(self) -> str:
         return f"_Symbol({repr(self.name)})"
@@ -189,7 +189,7 @@ class _Literal(RHSItem):
         return f'"{escaped}"'
 
     def latex(self) -> str:
-        return f"\\literal{LB}{ltxesc(str(self))}{RB}"  # We use escaping rather than \verb||
+        return f"\\literal{LB}{ltxesc(str(self)[1:-1])}{RB}"  # We use escaping rather than \verb||
 
     def __repr__(self) -> str:
         escaped = self.text.encode("unicode_escape").decode('ascii')
@@ -343,7 +343,7 @@ class _Choice(RHSItem):
 
     def latex(self) -> str:
         disjunct_str = " \\OR ".join(item.latex() for item in self.items)
-        return f"({disjunct_str})"
+        return f"{disjunct_str}"
 
     def __repr__(self) -> str:
         choices = ", ".join(repr(i) for i in self.items)
