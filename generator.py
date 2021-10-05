@@ -201,7 +201,7 @@ def random_sentence(g: Grammar, budget: int = 20,
                     interpret_escapes: bool = False,
                     bias=None) -> str:
     """A generator of random sentences, without external control"""
-    if bias==None:
+    if bias is None:
         bias = Bias()
     while g.start.min_tokens() > budget:
         log.info(f"Bumping budget by minimum requirement {g.start.min_tokens()}")
@@ -222,6 +222,4 @@ def random_sentence(g: Grammar, budget: int = 20,
     txt = state.text
     if interpret_escapes:
         txt = txt.encode().decode('unicode-escape')
-    # bias.reward()
     return txt
-    # log.debug(dump_bias(bias, g))

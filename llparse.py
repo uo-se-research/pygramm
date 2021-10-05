@@ -197,16 +197,23 @@ def _bnf_symbol(stream: TokenStream, gram: Grammar) -> RHSItem:
         # log.debug(f"Subsequence group: {subseq}")
         return subseq
     token = stream.take()
-    if token.kind == TokenCat.STRING or token.kind == TokenCat.CHAR:
-        # log.debug("Forming literal")
-        return gram.literal(token.value[1:-1])  # Clips quotes
-    elif token.kind == TokenCat.IDENT:
-        # log.debug("Forming symbol")
-        return gram.symbol(token.value)
-    elif token.kind == TokenCat.CHARCLASS:
-        return form_character_class(token.value, gram)
-    else:
-        raise InputError(f"Unexpected input token {token.value}")
+    try:
+        if token.kind == TokenCat.STRING or token.kind == TokenCat.CHAR:
+            # log.debug("Forming literal")
+            # Note we handle unicode interpretation here so that the
+            # lexer need not know, for example, how to handle character
+            # classes.
+            lit_value = (token.value[1:-1]).encode().decode('unicode-escape')
+            return gram.literal(lit_value)
+        elif token.kind == TokenCat.IDENT:
+            # log.debug("Forming symbol")
+            return gram.symbol(token.value)
+        elif token.kind == TokenCat.CHARCLASS:
+            return form_character_class(token.value, gram)
+        else:
+            raise InputError(f"Unexpected input token {token.value}")
+    except UnicodeDecodeError as e:
+        raise InputError(e.reason + f" (input line {stream.line_num})")
 
 
 def form_character_class(s: str, gram: Grammar) -> _CharRange:
@@ -216,7 +223,7 @@ def form_character_class(s: str, gram: Grammar) -> _CharRange:
     """
     assert s[0] == "[" and s[-1] == "]"
     choices = _CharRange(desc=s)
-    # We need to see each character code as an indvidual
+    # We need to see each character code as an individual
     # character.
     r = (s[1:-1]).encode().decode('unicode-escape')
     # FIXME: This will not handle \\[ correctly
@@ -224,12 +231,12 @@ def form_character_class(s: str, gram: Grammar) -> _CharRange:
     while pos < len(r):
         # A span x-y?
         #  x would be at position len(r) - 3 or earlier
-        if pos <= len(r) - 2 and r[pos+1] == '-':
+        if pos <= len(r) - 3 and r[pos+1] == '-':
             range_begin = r[pos]
             range_end = r[pos+2]
-            pos += 3
             for i in range(ord(range_begin),ord(range_end)+1):
                 choices.append(gram.literal(chr(i)))
+            pos += 3
         else:
             choices.append(gram.literal(r[pos]))
             pos += 1

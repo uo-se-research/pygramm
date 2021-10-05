@@ -16,7 +16,7 @@ log.setLevel(logging.DEBUG)
 # f = open("data/ebnf_plus.gram")
 # f = open("data/nested_groups.gram")
 # f = open("data/sqlite_pruned.txt")
-f = open("data/xml-pruned.txt")
+f = open("data/flex.gram")
 # f = open("data/ebnf_charclass.gram")
 # f = open("data/gram-calc-multi-line-2020-06-04_22-59.gram.txt")
 gram = parse(f, len_based_size=True)
@@ -42,7 +42,15 @@ xform.transform_all_rhs(gram)
 # print(gram.dump())
 # print("*** Generated sentences ***")
 # budget = max(5, 2 * gram.start.min_tokens())
-for i in range(5):
-    txt = random_sentence(gram, budget=60, min_length=50)
-    print(f"\n\nGenerated:\n {txt}")
-
+bias_base = Bias()
+for i in range(100):
+    bias = bias_base.fork()
+    txt = random_sentence(gram, budget=60, min_length=30, bias=bias)
+    if len(txt) > 50:
+        bias.reward()
+    elif len(txt) < 40:
+        bias.penalize()
+    print(f"\nGenerated:\n{txt}")
+# print("Bias table: ")
+# print(dump_bias(bias_base, gram))
+# print("Bias should be up there^")

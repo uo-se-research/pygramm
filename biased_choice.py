@@ -94,7 +94,7 @@ class _BiasCore:
         if bigram not in self.bigram_weights:
             # Haven't seen it in this context; depend on its
             # overall weight from all contexts in which we've seen it.
-            log.debug(f"First sighting of {bigram}")
+            # log.debug(f"First sighting of {bigram}")
             return item_weight
         bi_weight = self.bigram_weights[bigram]
         log.debug(f"Combining weights {item_weight} with bigram weight {bi_weight}")
