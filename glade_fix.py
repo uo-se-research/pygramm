@@ -1,5 +1,5 @@
 """Transformations designed specifically for grammars produced
-by Glade, to make them more suitable for PerfRL.
+by Glade, to make them more suitable for TreeLine.
 - Add a single non-terminal EMPTY and remove other empty strings
 - Unroll unit productions, which add useless depth to derivations
 - Break big disjunction of character literals into groups that are
