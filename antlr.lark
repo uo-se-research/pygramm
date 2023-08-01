@@ -1,0 +1,43 @@
+// A lark parser grammar for Antlr grammars, because there are lots of existing
+// Antlr grammars that we would like to repurpose for fuzzing.
+//
+
+?start: antlr
+
+antlr: (noise | production)*
+
+noise:  naming | options
+
+naming: "parser" "grammar" IDENT ";"
+options: "options" "{"  (IDENT "=" IDENT ";")* "}"
+
+production: lhs ":" choices ";"
+lhs: "fragment"? IDENT
+choices: choices "|" rhs_item  | rhs_item
+rhs_item: star | plus | primary
+star: rhs_item "*"
+plus: rhs_item "+"
+primary:  IDENT | token_def
+
+
+// Token definitions in Antlr can be strings or regular expressions
+token_def:  literal | regex
+literal: /["].*["]/  // Replace this with a lark predefined
+regex: char_class
+char_class: negated char_class | spans
+spans: /\[.*\]/
+
+// Typical pattern for identifiers.  Antlr uses lexical conventions
+// to distinguish terminals from non-terminals, but we can ignore
+// that distinction.
+IDENT: /[_a-zA-Z][_a-zA-Z0-9]*/
+
+// Use Lark pre-built lexical patterns for skipping whitespace
+%import common.WS
+%ignore WS
+
+
+
+
+
+
