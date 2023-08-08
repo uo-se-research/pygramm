@@ -1,40 +1,56 @@
-// A lark parser grammar for Antlr grammars, because there are lots of existing
-// Antlr grammars that we would like to repurpose for fuzzing.
-//
+//# A lark parser grammar for Antlr grammars, because there are lots of existing
+//# Antlr grammars that we would like to repurpose for fuzzing.
+//#
 
 ?start: antlr
 
 antlr: (noise | production)*
 
-noise:  naming | options
-
+//# Antlr constructions we are currently ignoring
+noise:  naming | options | lexer
 naming: "parser" "grammar" IDENT ";"
 options: "options" "{"  (IDENT "=" IDENT ";")* "}"
+//# lexer inclusion is TBD
+lexer:  "lexer" "grammar" IDENT ";"
+
+//# Use Lark pre-built lexical patterns for skipping whitespace
+%import common.WS
+%ignore WS
+
+
+//# Additional (virtual) whitespace specific to Antlr
+//# These are copied from example Verilog grammar (after failure to write my own)
+DOUBLE_SLASH:  "//" /[^\n]*/
+%ignore DOUBLE_SLASH
+SLASH_STAR:  /\/\*(\*(?!\/)|[^*])*\*\//
+%ignore SLASH_STAR
+
+
 
 production: lhs ":" choices ";"
 lhs: "fragment"? IDENT
-choices: choices "|" rhs_item  | rhs_item
-rhs_item: star | plus | primary
+choices: choices "|" choice | choice
+choice:  rhs_item *
+rhs_item: star | plus | optional | skip | primary
 star: rhs_item "*"
 plus: rhs_item "+"
-primary:  IDENT | token_def
+optional: rhs_item "?"
+skip:  rhs_item "->" "skip"
+primary:  IDENT | token_def | "(" choices ")"
 
 
-// Token definitions in Antlr can be strings or regular expressions
+//# Token definitions in Antlr can be strings or regular expressions
 token_def:  literal | regex
-literal: /["].*["]/  // Replace this with a lark predefined
+literal: /["][^"]*["]/ | /['][^']*[']/
 regex: char_class
 char_class: negated char_class | spans
+negated: "~"
 spans: /\[.*\]/
 
-// Typical pattern for identifiers.  Antlr uses lexical conventions
-// to distinguish terminals from non-terminals, but we can ignore
-// that distinction.
+//# Typical pattern for identifiers.  Antlr uses lexical conventions
+//# to distinguish terminals from non-terminals, but we can ignore
+//# that distinction.
 IDENT: /[_a-zA-Z][_a-zA-Z0-9]*/
-
-// Use Lark pre-built lexical patterns for skipping whitespace
-%import common.WS
-%ignore WS
 
 
 
