@@ -2,8 +2,8 @@
 Mainly adds a nicer diagnostic table dump.
 """
 
-from pygramm.biased_choice import Bias
-from pygramm.grammar import Grammar, _Choice
+from .biased_choice import Bias
+from .grammar import Grammar, _Choice
 
 def dump_bias(bias: Bias, gram: Grammar) -> str:
     """Bias table annotation of grammar"""

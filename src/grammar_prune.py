@@ -1,9 +1,9 @@
 """Glue together parsing and random sentence generation"""
 
-from pygramm.llparse import parse
-from pygramm.char_classes import  CharClasses
-from pygramm.unit_productions import UnitProductions
-from pygramm.grammar import FactorEmpty, GrammarDiagnostics
+from .llparse import parse
+from .char_classes import  CharClasses
+from .unit_productions import UnitProductions
+from .grammar import FactorEmpty, GrammarDiagnostics
 
 import sys
 import argparse

@@ -1,19 +1,15 @@
 """
-A simple LL parser for Antlr grammars (variant of llparse.py).
-Things we can't handle:
-- Antlr has grammar composition with inheritance rules that include overriding.  We don't, for now.
-- Antlr permits regular expressions as token patterns.  We do not have a general method for
-  for generating strings from regular expressions, although our EBNF supports kleene star,
-  so maybe we can get away with treating most regex as if they were BNF.
-- (add more shortcomings here as we discover them)
+An LL parser for BNF
+Michal Young, adapted Summer 2020 from CIS 211 projects,
+revised in discussion with Ziyad Alsaeed.
 """
 
 import logging
 from typing import TextIO, List
 
-import pygramm.config as config
-from pygramm.grammar import Grammar, RHSItem, _Literal, _CharRange
-from pygramm.lex import TokenStream, TokenCat
+from  . import config
+from .grammar import Grammar, RHSItem, _Literal, _CharRange
+from .lex import TokenStream, TokenCat
 
 
 logging.basicConfig()
@@ -70,8 +66,6 @@ def require(stream: TokenStream, category: TokenCat, desc: str = "", consume=Fal
 #  symbol ::= IDENT | STRING | group
 #  group ::= '(' bnf_rhs ')'
 #
-# For Antlr compatibility, we add some throwaways:
-# statement ::= parser IDENT IDENT TERMINATOR
 
 def _grammar(stream: TokenStream, gram: Grammar):
     """
@@ -101,22 +95,18 @@ def _statement(stream: TokenStream, gram: Grammar):
     """
     require(stream, TokenCat.IDENT, desc="Statement should begin with symbol")
     lhs_ident = stream.take().value
-    if lhs_ident == "parser":
-        # Antlr like 'parser grammar SomeGrammarName;'
-        require(stream, TokenCat.IDENT, "Antlr parser type should be 'grammar' or 'lexer'", consume=True)
-        require(stream, TokenCat.IDENT, "Antlr parser declaration should end with grammar name", consume=True)
-    else:
-        prod_type = stream.take()
-        if prod_type.kind == TokenCat.BNFPROD:
-            lhs_sym = gram.symbol(lhs_ident)
-            rhs = _bnf_rhs(stream, gram)
-            gram.add_cfg_prod(lhs_sym, rhs)
-        elif prod_type.kind == TokenCat.BNFMERGE:
-            merge_list = _merge_symbols(stream)
-            # Merges are symmetric, so order doesn't matter
-            merge_list.append(lhs_ident)
-            gram.merge_symbols(merge_list)
-    require(stream, TokenCat.TERMINATOR, "Terminator at end of statement", consume=True)
+    prod_type = stream.take()
+    if prod_type.kind == TokenCat.BNFPROD:
+        lhs_sym = gram.symbol(lhs_ident)
+        rhs = _bnf_rhs(stream, gram)
+        gram.add_cfg_prod(lhs_sym, rhs)
+    elif prod_type.kind == TokenCat.BNFMERGE:
+        merge_list = _merge_symbols(stream)
+        # Merges are symmetric, so order doesn't matter
+        merge_list.append(lhs_ident)
+        gram.merge_symbols(merge_list)
+    require(stream, TokenCat.TERMINATOR, "Statement must end with terminator",
+            consume=True)
 
 
 def _merge_symbols(stream) -> List[str]:
@@ -263,7 +253,7 @@ def _lex_rhs(stream: TokenStream, gram: Grammar) -> _Literal:
 
 
 if __name__ == "__main__":
-    sample = open("data/with_comments.txt")
+    sample = open("../data/with_comments.txt")
     print("Parsing sample")
     gram = parse(sample)
     print("Parsed!")

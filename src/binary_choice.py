@@ -2,8 +2,8 @@
 exactly two alternatives.
 """
 
-import grammar
-from grammar import _Choice, RHSItem
+from . import grammar
+from .grammar import RHSItem
 from typing import List
 
 class Binary_Choices(grammar.TransformBase):

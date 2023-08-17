@@ -1,6 +1,6 @@
 """Group large choices of character literals into categories"""
 
-from pygramm import grammar
+from . import grammar
 from enum import Enum, auto
 from typing import List
 

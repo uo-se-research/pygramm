@@ -6,9 +6,8 @@ order, with no boundaries between symbols from expanding
 different non-terminals).
 """
 
-from pygramm.grammar import Grammar, RHSItem, _Seq, _Literal
-from pygramm.biased_choice import Bias   # Debugging biased choice
-from pygramm.grammar_bias import dump_bias
+from .grammar import Grammar, RHSItem, _Seq, _Literal
+from .biased_choice import Bias   # Debugging biased choice
 from typing import List
 
 import random

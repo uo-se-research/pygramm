@@ -9,7 +9,7 @@ should become:
     A ::= 'b' 'c' ;
 """
 
-from pygramm import grammar
+from . import grammar
 
 from typing import Set
 

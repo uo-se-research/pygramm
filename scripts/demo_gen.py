@@ -1,11 +1,23 @@
-"""Glue together parsing and random sentence generation"""
+"""Glue together parsing and random sentence generation.
 
-from pygramm.llparse import *
-from pygramm.generator import *
-from pygramm.char_classes import  CharClasses
-from pygramm.unit_productions import UnitProductions
-from pygramm.grammar import FactorEmpty
-from pygramm.biased_choice import Bias
+Top-level script cannot use relative import, thus the path hack.
+"""
+import sys
+
+# Python really doesn't like scripts in subdirectories,
+# but we can bend it to our will by explaining the position
+# of this script within the project directories.
+if __name__ == "__main__":
+    sys.path.append("../..")                # Root of subproject
+    __name__ = "pygramm.scripts.demo_gen"   # Name of this script relative to root
+
+# Then we can use imports relative to this script
+from ..src.llparse import parse
+from ..src.generator import *
+from ..src.char_classes import  CharClasses
+from ..src.unit_productions import UnitProductions
+from ..src.grammar import FactorEmpty
+from ..src.biased_choice import Bias
 
 import logging
 logging.basicConfig()
@@ -16,7 +28,7 @@ log.setLevel(logging.DEBUG)
 # f = open("data/ebnf_plus.gram")
 # f = open("data/nested_groups.gram")
 # f = open("data/sqlite_pruned.txt")
-f = open("data/flex.gram")
+f = open("../data/flex.gram")
 # f = open("data/ebnf_charclass.gram")
 # f = open("data/gram-calc-multi-line-2020-06-04_22-59.gram.txt")
 gram = parse(f, len_based_size=True)
