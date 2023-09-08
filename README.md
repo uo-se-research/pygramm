@@ -63,6 +63,16 @@ A phrase generator (`generator.py`), together with some
   within a given length limit (the _budget_) with or without
   direction.  See `choicebot.py` for an example of how
   grammar choices can be controlled. 
+
+## Organization
+
+PyGramm was initially distributed in source form, and incorporated in 
+SlackLine and TreeLine as a git submodule.  That proved unwieldy because
+of conflicts between typical structures of Git repositories and the 
+organization assumed in Python packages.  For that reason we are now 
+producing a PyPi package (installable with pip).  See the
+[project organization](doc/project-structure.md)
+for details, including how to extend PyGramm for your needs.
   
 ### To Do
 
