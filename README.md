@@ -1,28 +1,50 @@
 # pygramm : Grammar processing in Python
 
-Experiments in processing BNF with Python. 
-Work in progress. 
+PyGramm is a grammar processing package specialized for generating 
+(rather than parsing) text described by BNF grammars.  It is used
+in particular for grammar-based fuzzing in the tools SlackLine and 
+TreeLine.
 
 ## Why? 
 
-While Ply provides a semi-yaccalike, it has some 
-characteristics that bother me.  First, it prioritizes
-lexical processing by the length of the pattern, 
-not the length of the token ... in violation of the 
-"maximum munch" rule.  Second, it tries to do everything
-at run time. 
+There are several alternatives for generating Python parsers,
+including Ply, Antlr, and (our favorite) Lark.  While there are
+advantages to being as compatible as possible with the grammar
+syntax accepted by these tools (as well as Yacc/Bison
+and CUP), the API and underlying data structures for a sentence
+_generator_ differ significantly from those for a _parser_. 
 
-Also I want to experiment with generation of 
-sentences as well as parsing, and with LL as well 
-as LR parsing. 
+- Ambiguity doesn't matter.
+- Completeness might not matter, or might be counter-productive.
+  For example, we probably don't want to exhaustively sample the
+  space of possible integer literals.  We almost certainly don't
+  want to generate all and only legal comments. 
+- Some lexical rules are actually more difficult to precisely describe
+  in a grammar, because of the "maximum munch" rule.  For example, 
+  in a typical programming language, white space must separate an 
+  identifier from a following keyword (and vice versa), but not from 
+  a following punctuation mark, even though grammatically keywords 
+  and punctuation are equivalent.
 
-## Work in progress
+For fuzzing, we have a few peculiar requirements on the API: 
 
-### Done
-* Parse BNF (`llparse.py`) and create an internal form. 
-  The BNF form is extended with Kleene *, but a grammar
-  in pure BNF without Kleene is also fine.  
-* Internal structure (`grammar.py`) represents the BNF 
+- We want to limit the length of generated strings.
+- We might consider "length" to be the number of characters, or the 
+  number of bytes, or the number of tokens.  Ideally we should be 
+  able to choose. 
+- We might want to generate a variant of a text we have generated 
+  previously, possibly by splicing subtrees of the derivation tree,
+  a la Nautilus.  And if we do, we'll still care about length. 
+- We'll almost certainly want to avoid generating the same text
+  repeatedly, so we'll need some (relatively cheap) way of recording 
+  previously generated texts or derivation trees. 
+- We might want to keep track of which previously generated texts or 
+  fragments have been judged 'good' in some way in the past, e.g., 
+  because they increased coverage or execution time in generated tests.
+
+## How it works
+
+Internal structure (`grammar.py`) represents the BNF 
   structure directly.  The Grammar object contains a list
   of symbols, each of which has a single `expansion` 
   (which could be a sequence or a choice).  The following two
@@ -35,7 +57,8 @@ as LR parsing.
   ```
   S ::= "a" | "b";
   ```
-* A phrase generator (`generator.py`), together with some
+
+A phrase generator (`generator.py`), together with some
   grammar analysis in `grammar.py`, can produce sentences
   within a given length limit (the _budget_) with or without
   direction.  See `choicebot.py` for an example of how
@@ -43,19 +66,14 @@ as LR parsing.
   
 ### To Do
 
-* Distinguish lexical from CFG productions even for 
-  sentence generation because we will want different tactics for 
-  tokens than for RHS.  In CFG we budget for length of sentence. 
-  In lexical productions we should choose between new and previously 
-  used tokens.  Currently the BNF goes all the way to string
-  constants, always.  The works for the kinds of grammars that 
-  [Glade](https://github.com/kuhy/glade) learns, but it is
-  not really ideal for generating useful program inputs. 
-* Related to the prior point:  Infer a good boundary between
-  CFG and lexical structure.  In conventional grammar processing, 
-  a developer makes this distinction.  For grammar learners
-  like Glade, though, the distinction is not trivial to recognize. 
-* Add classic grammar analyses, starting with analyses for LL(1)
-  grammars (first, follow), then checking for conflicts, and 
-  likewise for LALR(1) and/or LR(1).
-* Add simple transformations, such as left-factoring for LL(1).
+Initially PyGramm uses BNF throughout, without a distinction between 
+lexical and syntactic structure, although the input grammar can use 
+some extensions to BNF including Kleene star (repetition).  
+
+We anticipated from the beginning that distinguishing lexical from 
+syntactic structure would probably be useful.  Experience with 
+PyGramm in SlackLine and TreeLine supports this.  We think, in 
+particular, that heuristics for generating new terminal symbols
+(e.g., identifiers) should probably be different from those for varying 
+syntactic structure.  
+
