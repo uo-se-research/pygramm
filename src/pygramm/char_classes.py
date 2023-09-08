@@ -1,7 +1,7 @@
 """Group large choices of character literals into categories"""
 
 from . import grammar
-from enum import Enum, auto
+from enum import Enum
 from typing import List
 
 import logging

@@ -1,7 +1,7 @@
-"""Simple smoke test for generated tokens"""
+"""Simple smoke tests for generated tokens"""
 
 import sys
-sys.path.append("../..")
+sys.path.append("../../..")
 
 from src import grammar, generator
 

@@ -6,10 +6,9 @@ by Glade, to make them more suitable for TreeLine.
   often treated similarly, e.g., digits
 """
 
-from pygramm.llparse import *
-from pygramm.char_classes import CharClasses
-from pygramm.unit_productions import UnitProductions
-from pygramm.grammar import FactorEmpty
+from src.pygramm import CharClasses
+from src.pygramm import UnitProductions
+from src.pygramm.grammar import FactorEmpty
 
 import argparse
 import sys

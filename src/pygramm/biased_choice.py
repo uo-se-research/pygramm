@@ -185,7 +185,7 @@ class Bias:
 
 
 def main():
-    """Smoke test, biases letter choice toward end of alphabet.
+    """Smoke tests, biases letter choice toward end of alphabet.
     We should see random words tend toward later letters after
     a few hundred iterations.
     """

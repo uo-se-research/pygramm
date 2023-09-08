@@ -253,7 +253,7 @@ def _lex_rhs(stream: TokenStream, gram: Grammar) -> _Literal:
 
 
 if __name__ == "__main__":
-    sample = open("../data/with_comments.txt")
+    sample = open("../../data/with_comments.txt")
     print("Parsing sample")
     gram = parse(sample)
     print("Parsed!")

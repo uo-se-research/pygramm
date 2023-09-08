@@ -4,9 +4,8 @@ User prompted for each choice.
 
 import argparse
 
-from pygramm.llparse import *
-from pygramm.generator import Gen_State
-from pygramm.grammar import Grammar, FactorEmpty
+from src.pygramm import Gen_State
+from src.pygramm.grammar import Grammar, FactorEmpty
 
 
 def cli() -> object:

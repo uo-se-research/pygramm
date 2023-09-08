@@ -251,7 +251,7 @@ class TokenStream(object):
 
 ###
 if __name__ == "__main__":
-    # Simple smoke test
+    # Simple smoke tests
     sample = "<Alt_4520936952> ::= <Rep_4520937232>"
     debug_matches(sample)
     text = io.StringIO(sample)

@@ -1,3 +1,3 @@
-"""Re-exports the public entry points from pygramm/src"""
+"""Re-exports the public entry points from pygramm/pygramm"""
 
 from .src import grammar
