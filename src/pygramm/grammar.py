@@ -6,7 +6,7 @@ import sys
 from typing import List, Dict, Optional, Set
 
 # import pygramm.config as config
-from . import config
+import config
 
 logging.basicConfig()
 log = logging.getLogger(__name__)
@@ -542,7 +542,7 @@ class Grammar(object):
         self._productions: Dict[str, list] = dict()
         self.max_lower_bound = max_lower_bound
 
-    def add_cfg_prod(self, lhs: _Symbol, rhs: list):
+    def add_cfg_prod(self, lhs: _Symbol, rhs: _Seq):
         if self.start is None:
             self.start = lhs
         lhs_ident = lhs.name

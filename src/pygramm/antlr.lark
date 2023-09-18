@@ -27,20 +27,21 @@ SLASH_STAR:  /\/\*(\*(?!\/)|[^*])*\*\//
 
 
 
-production: lhs ":" choices ";"
-lhs: "fragment"? IDENT
-choices: choices "|" choice | choice
-choice:  rhs_item *
-rhs_item: star | plus | optional | skip | primary
-star: rhs_item "*"
-plus: rhs_item "+"
-optional: rhs_item "?"
-skip:  rhs_item "->" "skip"
-primary:  IDENT | token_def | "(" choices ")"
+production: _lhs ":" choices ";"
+_lhs: _opt_frag_tag IDENT
+_opt_frag_tag: "fragment"?
+?choices: choices "|" seq | seq
+seq:  _rhs_item *
+_rhs_item: star | plus | optional | _skip | primary
+star: _rhs_item "*"
+plus: _rhs_item "+"
+optional: _rhs_item "?"
+_skip:  _rhs_item "->" "skip"
+?primary:  IDENT | token_def | "(" choices ")"
 
 
 //# Token definitions in Antlr can be strings or regular expressions
-token_def:  literal | regex
+?token_def:  literal | regex
 literal: /["][^"]*["]/ | /['][^']*[']/
 regex: char_class
 char_class: negated char_class | spans
