@@ -1,6 +1,6 @@
 [project]
 name = "pygramm"
-version = "0.0.2"
+version = "0.0.3"
 authors = [{ name="Michal Young", email="michal@cs.uoregon.edu"},
     { name="Ziyad Alsaeed", email="zalsaeed@qu.edu.sa"}
 ]

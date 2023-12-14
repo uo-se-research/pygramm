@@ -1,5 +1,7 @@
 
-/** Taken from "The Definitive ANTLR 4 Reference" by Terence Parr */
+/** Taken from "The Definitive ANTLR 4 Reference" by Terence Parr
+ * Modified September 2023 by MY, replace lexical part with fixed choices.
+*/
 
 // Derived from https://json.org
 grammar JSON;
@@ -32,29 +34,22 @@ value
    | 'null'
    ;
 
+/* The remainder of the Antlr grammar is a lexical specification, described by regular expressions
+ * even though the notation is BNF.  We can largely use it but omit the SAFECODEPOINT which includes
+ * a negated character set.
+ */
 
-STRING
-   : '"' (ESC | SAFECODEPOINT)* '"'
-   ;
-
-
-fragment ESC
-   : '\\' (["\\/bfnrt] | UNICODE)
-   ;
+ STRING :  '"' SCHAR* '"' ;
+ SCHAR :  [A-Za-z0-9#/_] | UNICODE | HEX ;
 
 
-fragment UNICODE
+UNICODE
    : 'u' HEX HEX HEX HEX
    ;
 
 
-fragment HEX
+HEX
    : [0-9a-fA-F]
-   ;
-
-
-fragment SAFECODEPOINT
-   : ~ ["\\\u0000-\u001F]
    ;
 
 
@@ -64,7 +59,7 @@ NUMBER
 
 
 fragment INT
-   // integer part forbis leading 0s (e.g. `01`)
+   // integer part forbids leading 0s (e.g. `01`)
    : '0' | [1-9] [0-9]*
    ;
 

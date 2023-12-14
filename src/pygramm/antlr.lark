@@ -4,14 +4,14 @@
 
 ?start: antlr
 
-antlr: (noise | production)*
+antlr: (_noise | production)*
 
 //# Antlr constructions we are currently ignoring
-noise:  naming | options | lexer
-naming: "parser" "grammar" IDENT ";"
-options: "options" "{"  (IDENT "=" IDENT ";")* "}"
+_noise:  _naming | _options | _lexer
+_naming: "parser"? "grammar" IDENT ";"
+_options: "options" "{"  (IDENT "=" IDENT ";")* "}"
 //# lexer inclusion is TBD
-lexer:  "lexer" "grammar" IDENT ";"
+_lexer:  "lexer" "grammar" IDENT ";"
 
 //# Use Lark pre-built lexical patterns for skipping whitespace
 %import common.WS
@@ -24,33 +24,39 @@ DOUBLE_SLASH:  "//" /[^\n]*/
 %ignore DOUBLE_SLASH
 SLASH_STAR:  /\/\*(\*(?!\/)|[^*])*\*\//
 %ignore SLASH_STAR
+%ignore "EOF"
+
+
 
 
 
 production: _lhs ":" choices ";"
-_lhs: _opt_frag_tag IDENT
+_lhs: _opt_frag_tag ident
 _opt_frag_tag: "fragment"?
-?choices: choices "|" seq | seq
+?choices: seq ("|" seq)*
 seq:  _rhs_item *
 _rhs_item: star | plus | optional | _skip | primary
 star: _rhs_item "*"
 plus: _rhs_item "+"
 optional: _rhs_item "?"
 _skip:  _rhs_item "->" "skip"
-?primary:  IDENT | token_def | "(" choices ")"
+?primary:  ident | token_def | "(" choices ")"
 
 
 //# Token definitions in Antlr can be strings or regular expressions
 ?token_def:  literal | regex
 literal: /["][^"]*["]/ | /['][^']*[']/
-regex: char_class
-char_class: negated char_class | spans
-negated: "~"
+regex:    "~" regex -> negation_unsupported
+     | spans
 spans: /\[.*\]/
 
 //# Typical pattern for identifiers.  Antlr uses lexical conventions
 //# to distinguish terminals from non-terminals, but we can ignore
 //# that distinction.
+//# Note "ident" is added to grammar symbols, "IDENT" is not.
+//# Use "IDENT" where we are skipping over Antlr constructs
+//# like naming the grammar.
+ident: IDENT
 IDENT: /[_a-zA-Z][_a-zA-Z0-9]*/
 
 

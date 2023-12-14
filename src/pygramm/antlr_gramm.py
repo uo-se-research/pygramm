@@ -6,17 +6,19 @@ grammars.  (Work in progress)
 import os
 
 from lark import Lark, Transformer
-import grammar
+from . import grammar
+from . import config
 
 import logging
 log = logging.getLogger(__name__)
-log.setLevel(logging.DEBUG)
+log.setLevel(logging.INFO)
 
 HERE = os.path.abspath(os.path.dirname(__file__))
 ANTLR_GRAMM = os.path.join(HERE, "antlr.lark")
 
-def parse(grammar_path: str) -> grammar.Grammar:
+def parse(grammar_path: str, len_based_size=False) -> grammar.Grammar:
     """Produce a pygramm Grammar object from an Antlr grammar."""
+    config.LEN_BASED_SIZE = len_based_size  # update global accordingly to be used in grammar.
     log.debug("Opening Lark grammar for Antlr grammars")
     antlr_parser = Lark(open(ANTLR_GRAMM, "r"))
     log.debug(f"Opening Antlr grammar file {grammar_path}")
@@ -51,9 +53,13 @@ class GramBuilder(Transformer):
         text = quoted_text.strip('"\'')
         return grammar._Literal(text)
 
-    def IDENT(self, data) -> grammar._Symbol:
-        log.debug(f"Transforming IDENT from {data}")
-        sym = self.gram.symbol(data.value)
+    def IDENT(self, data):
+        return data.value
+
+    def ident(self, children) -> grammar._Symbol:
+        id = children[0]
+        log.debug(f"Transforming identifier from {id}")
+        sym = self.gram.symbol(id)
         return sym
 
     def lhs(self, children):
@@ -70,6 +76,75 @@ class GramBuilder(Transformer):
             sequence.append(child)
         return sequence
 
+    def choices(self, children):
+        """?choices: seq ("|" seq)* """
+        elements = self.gram.choice()
+        for child in children:
+            elements.append(child)
+        return elements
+
+    def spans(self, children):
+        """ spans: /[.*]/
+        Handler copied from llparse.py.
+        """
+        s = children[0]
+        assert s[0] == "[" and s[-1] == "]"
+        choices = grammar._CharRange(desc=s)
+        # We need to see each character code as an individual
+        # character.
+        inner = s[1:-1]
+        r = inner.encode().decode(r"unicode-escape")
+        # FIXME: This will not handle \\[ correctly
+        pos = 0
+        while pos < len(r):
+            # A span x-y?
+            #  x would be at position len(r) - 3 or earlier
+            if pos <= len(r) - 3 and r[pos + 1] == '-':
+                range_begin = r[pos]
+                range_end = r[pos + 2]
+                for i in range(ord(range_begin), ord(range_end) + 1):
+                    choices.append(self.gram.literal(chr(i)))
+                pos += 3
+            else:
+                choices.append(self.gram.literal(r[pos]))
+                pos += 1
+        return choices
+
+    def regex(self, children):
+        return children[0]
+
+    def negation_unsupported(self, children):
+        """char_class:
+            _negated char_class -> negation_unsupported
+            | spans
+        """
+        chars = children[0].value
+        raise ValueError(f"""
+        Negated character classes (~{chars}) should be replaced with
+        examples of acceptable characters.
+        """)
+
+
+    def star(self, children):
+        """star: _rhs_item "*" """
+        kleene = self.gram.kleene(children[0])
+        return kleene
+
+    def plus(self, children):
+        """x+ is the same as x x *"""
+        sequence = self.gram.seq()
+        sequence.append(children[0])
+        tail = self.gram.kleene(children[0])
+        sequence.append(tail)
+        return sequence
+
+    def optional(self, children):
+        """x? is (x | empty)"""
+        empty = self.gram.seq()
+        opt = self.gram.choice()
+        opt.append(children[0])
+        opt.append(empty)
+        return opt
 
     def production(self, children) -> tuple[grammar._Symbol, grammar.RHSItem]:
         log.debug(f"Transforming production {children}")
@@ -81,7 +156,7 @@ class GramBuilder(Transformer):
         return self.gram
 
     def __default__(self, data, children, meta):
-        log.debug(f"Unrecognized node\nData: {data}\nChildren: {children}")
+        log.warning(f"Unrecognized node\nData: {data}\nChildren: {children}")
         return data
 
 # From antlr.lark:
@@ -105,7 +180,7 @@ literal: /["][^"]*["]/ | /['][^']*[']/
 regex: char_class
 char_class: negated char_class | spans
 negated: "~"
-spans: /\[.*\]/
+spans: /\\[.*\\]/
 
 //# Typical pattern for identifiers.  Antlr uses lexical conventions
 //# to distinguish terminals from non-terminals, but we can ignore

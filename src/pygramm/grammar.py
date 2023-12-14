@@ -6,7 +6,7 @@ import sys
 from typing import List, Dict, Optional, Set
 
 # import pygramm.config as config
-import config
+from . import config
 
 logging.basicConfig()
 log = logging.getLogger(__name__)
